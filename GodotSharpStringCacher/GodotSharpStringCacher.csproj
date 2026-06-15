@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-	<PackageReference Include="AsmResolver.DotNet" Version="6.0.0" />
-	<PackageReference Include="IsExternalInit" Version="1.0.3">
+	<PackageReference Include="AsmResolver.DotNet" Version="6.0.*" />
+	<PackageReference Include="IsExternalInit" Version="1.0.*">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
