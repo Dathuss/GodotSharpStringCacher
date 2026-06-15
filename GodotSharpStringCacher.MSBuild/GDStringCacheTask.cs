@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -8,19 +10,30 @@ namespace GodotSharpStringCacher.MSBuild
 	public class GDStringCacheTask : Task
 	{
 		[Required]
+		public string AssemblyName { get; set; }
+
+		[Required]
 		public string OutputPath { get; set; }
 
 		[Required]
-		public string AssemblyName { get; set; }
+		public ITaskItem[] ReferencePath { get; set; }
+
+		[Required]
+		public ITaskItem[] PackageReference { get; set; }
+
 
 		[Required]
 		public bool CacheMainAssemblyStrings { get; set; }
 
 		[Required]
-		public bool UseShortNames { get; set; }
+		public ITaskItem[] CacheStrings { get; private set; }
+
+		[Required]
+		public bool UseShortNamesByDefault { get; set; }
 
 		bool CacheOne(string path, string assemblyName, Config config)
 		{
+			Log.LogMessage($"{assemblyName}: Caching Godot strings...");
 			try
 			{
 				var ctx = new Context(path, config);
@@ -51,14 +64,66 @@ namespace GodotSharpStringCacher.MSBuild
 
 		public override bool Execute()
 		{
-			var config = new Config(UseShortNames);
+			var defaultConfig = new Config(UseShortNamesByDefault);
+
 			if (CacheMainAssemblyStrings)
 			{
-				string path = $"{OutputPath}{AssemblyName}.dll";
-				if (!CacheOne(path, AssemblyName, config))
+				if (!CacheOne($"{OutputPath}{AssemblyName}.dll", AssemblyName, defaultConfig))
 					return false;
 			}
+
+			var packagesToPatch = PackageReference.Where(x => GetBoolMetadata(x, "CacheStrings")).ToDictionary(x => x.ItemSpec);
+			var assemblyNamesToPatch = CacheStrings.ToDictionary(x => x.ItemSpec);
+
+			foreach (var reference in ReferencePath)
+			{
+				var fileName = reference.GetMetadata("FileName");
+				ITaskItem assemblyTask;
+
+				// Checks for <ProjectReference> and <Reference>
+				if (GetBoolMetadata(reference, "CacheStrings")) { assemblyTask = reference; }
+				// Checks for <PackageReference>
+				else if (TryGetMetadata(reference, "NuGetPackageId", out var nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId, out assemblyTask)) { }
+				// Checks for <CacheStrings>
+				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTask)) { }
+				else continue;
+				var fullPath = reference.GetMetadata("FullPath");
+
+				if (!CacheOne(fullPath, fileName, ParseConfig(assemblyTask, defaultConfig)))
+				{
+					return false;
+				}
+			}
+
 			return true;
+		}
+
+		static Config ParseConfig(ITaskItem taskWithOptions, Config defaultConfig)
+		{
+			bool GetBool(string name, bool fallback)
+			{
+				return HasMetadata(taskWithOptions, name) ? GetBoolMetadata(taskWithOptions, name) : fallback;
+			}
+
+			return new(GetBool("ShortNames", defaultConfig.ShortNames));
+		}
+
+		static bool HasMetadata(ITaskItem taskItem, string name) => ((ICollection<string>)taskItem.MetadataNames).Contains(name);
+
+		static bool TryGetMetadata(ITaskItem taskItem, string name, out string value)
+		{
+			if (HasMetadata(taskItem, name))
+			{
+				value = taskItem.GetMetadata(name);
+				return true;
+			}
+			value = null;
+			return false;
+		}
+
+		static bool GetBoolMetadata(ITaskItem taskItem, string name)
+		{
+			return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 		}
 	}
 }
