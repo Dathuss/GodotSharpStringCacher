@@ -62,7 +62,7 @@ public class Context
 
 	void PatchType(TypeDefinition type)
 	{
-		foreach (var typeMethod in type.Methods.Where(x => x.Signature != null && x.CilMethodBody != null))
+		foreach (var typeMethod in type.Methods.Where(x => x.CilMethodBody != null))
 		{
 			// No need to patch if we're already in a static constructor
 			if (typeMethod.Name != ".cctor")
