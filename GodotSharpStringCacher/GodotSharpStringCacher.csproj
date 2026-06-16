@@ -2,22 +2,21 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>14</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
-	<Nullable>enable</Nullable>
-	<LangVersion>13</LangVersion>
+    <Nullable>enable</Nullable>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-	<PackageId>GodotSharpStringCacher</PackageId>
-	<Description>
-		Library to cache Godot Mono/C# StringName and NodePath without changing the source code.
-	</Description>
+    <PackageId>GodotSharpStringCacher</PackageId>
+    <Description>
+        Library to cache Godot Mono/C# StringName and NodePath without changing the source code.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
-	<PackageReference Include="AsmResolver.DotNet" Version="6.0.*" />
-	<PackageReference Include="IsExternalInit" Version="1.0.*">
-      <PrivateAssets>all</PrivateAssets>
+    <PackageReference Include="AsmResolver.DotNet" Version="6.0.*" />
+    <PackageReference Include="IsExternalInit" Version="1.0.*" PrivateAssets="all">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
   </ItemGroup>

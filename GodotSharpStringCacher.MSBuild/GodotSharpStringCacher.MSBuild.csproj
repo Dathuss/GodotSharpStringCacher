@@ -2,26 +2,28 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>14</LangVersion>
     <OutputType>Library</OutputType>
-    <LangVersion>13</LangVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-	<PackageId>GodotSharpStringCacher.MSBuild</PackageId>
-	<Description>
-		Automatically cache Godot Mono/C# StringName and NodePath without changing your code.
-	</Description>
+    <PackageId>GodotSharpStringCacher.MSBuild</PackageId>
+    <Description>
+        Automatically cache Godot Mono/C# StringName and NodePath without changing your code.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.11.*" PrivateAssets="all" ExcludeAssets="Runtime" />
-    <ProjectReference Include="..\GodotSharpStringCacher\GodotSharpStringCacher.csproj" IncludeAssets="all" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="18.7.1" PrivateAssets="all" ExcludeAssets="Runtime">
+      <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <ProjectReference Include="../GodotSharpStringCacher/GodotSharpStringCacher.csproj" IncludeAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="$(MSBuildProjectName).targets" Pack="true" PackagePath="build"/>
-    <Content Include="$(OutputPath)GodotSharpStringCacher.dll" Pack="true" PackagePath="lib/$(TargetFramework)"/>
+    <Content Include="$(MSBuildProjectName).targets" Pack="true" PackagePath="build" />
+    <Content Include="$(OutputPath)GodotSharpStringCacher.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
 
     <Content Include="$(OutputPath)AsmResolver*.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
   </ItemGroup>
