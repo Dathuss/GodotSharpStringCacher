@@ -51,3 +51,10 @@ If you don't want that in a specific assembly, you can add `ShortNames=true`. If
 
 It executes after your project compiles and directly edits the resulting assembly. It uses [AsmResolver](https://github.com/Washi1337/AsmResolver), a library for assembly exploring and editing.  
 It looks for calls to these implicit conversion operators, then if the string is a constant, adds its value as a StringName/NodePath to a static class, then replaces the call with the load to this value.
+
+# Bugs and contributing
+
+I only tested this project on my own Godot projects, and it is still new. Therefore, there may be bugs. If you find a bug please please **PLEASE** fill an issue. Thanks :>
+
+
+Feel free to contribute too !
