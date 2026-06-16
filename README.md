@@ -1,5 +1,7 @@
 ### Automatically cache Godot Mono/C# StringName and NodePath without changing your code
 
+[![NuGet](https://img.shields.io/nuget/v/GodotSharpStringCacher.MSBuild.svg)](https://www.nuget.org/packages/GodotSharpStringCacher.MSBuild)
+
 # What ?
 
 Godot uses its own string types for a lot of features in the engine: `StringName` and `NodePath`. They each have their advantage which make a speed difference for the engine.  
