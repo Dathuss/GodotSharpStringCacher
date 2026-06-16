@@ -73,7 +73,7 @@ public class Context
 	void MatchAndPatch(MethodDefinition method)
 	{
 		var instructions = method.CilMethodBody!.Instructions;
-		instructions.ExpandMacros();
+		bool hasExpandedMacros = false;
 
 		// We are looking for this pattern:
 		// IL ldstr "MY_CONSTANT"
@@ -100,6 +100,11 @@ public class Context
 			
 			void MakeEdit(FieldDefinition field)
 			{
+				if (!hasExpandedMacros)
+				{
+					instructions.ExpandMacros();
+					hasExpandedMacros = true;
+				}
 				instructions[i].ReplaceWith(CilOpCodes.Ldsfld, field);
 				instructions.RemoveAt(i + 1);
 			}
@@ -116,7 +121,8 @@ public class Context
 			}
 		}
 
-		instructions.OptimizeMacros();
+		if (hasExpandedMacros)
+			instructions.OptimizeMacros();
 	}
 
 	static bool IsStringToStringNameImplicitOp(IMethodDefOrRef method)
