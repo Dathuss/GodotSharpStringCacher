@@ -37,7 +37,7 @@ static class Program
 			PrintUsage();
 			return null;
 		}
-		return new Params(inFile, outFile, new Config(longNames));
+		return new Params(inFile, outFile, new Config(longNames, new SimpleLogger()));
 	}
 
 	public static void Main(string[] args)
@@ -67,6 +67,24 @@ static class Program
 			else
 				Console.Error.WriteLine($"An unhandled exception occured: {ex}");
 			Environment.Exit(1);
+		}
+	}
+
+	class SimpleLogger : ILogger
+	{
+		public void Log(string message)
+		{
+			Console.WriteLine(message);
+		}
+
+		public void LogWarning(string message)
+		{
+			Console.WriteLine($"Warning: {message}");
+		}
+
+		public void LogError(string message)
+		{
+			Console.Error.WriteLine($"Error: {message}");
 		}
 	}
 }

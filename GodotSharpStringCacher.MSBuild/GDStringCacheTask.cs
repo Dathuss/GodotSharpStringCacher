@@ -62,7 +62,8 @@ public class GDStringCacheTask : Task
 
 	public override bool Execute()
 	{
-		var defaultConfig = new Config(UseLongNamesByDefault);
+		var logger = new SimpleLogger(this);
+		var defaultConfig = new Config(UseLongNamesByDefault, logger);
 		var ctx = new Context(defaultConfig);
 
 		if (CacheMainAssemblyStrings)
@@ -105,7 +106,7 @@ public class GDStringCacheTask : Task
 			return HasMetadata(taskWithOptions, name) ? GetBoolMetadata(taskWithOptions, name) : fallback;
 		}
 
-		return new(GetBool("LongNames", defaultConfig.UseLongNames));
+		return new(GetBool("LongNames", defaultConfig.UseLongNames), defaultConfig.Logger);
 	}
 
 	static bool HasMetadata(ITaskItem taskItem, string name) => ((ICollection<string>)taskItem.MetadataNames).Contains(name);
@@ -124,5 +125,23 @@ public class GDStringCacheTask : Task
 	static bool GetBoolMetadata(ITaskItem taskItem, string name)
 	{
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
+	}
+
+	class SimpleLogger(Task task) : ILogger
+	{
+		public void Log(string message)
+		{
+			task.Log.LogMessage(message);
+		}
+
+		public void LogError(string message)
+		{
+			task.Log.LogError(message);
+		}
+
+		public void LogWarning(string message)
+		{
+			task.Log.LogWarning(message);
+		}
 	}
 }

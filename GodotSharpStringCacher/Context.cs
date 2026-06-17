@@ -94,42 +94,40 @@ public class Context
 		// Which we will replace with
 		// IL ldsfld our_generated_field
 
-		bool Match(int index)
+		for (int i = 1; i < instructions.Count; i++)
 		{
-			// Poor man's code matching
-			return instructions[index].OpCode == CilOpCodes.Ldstr && instructions[index + 1].OpCode == CilOpCodes.Call;
-		}
-
-		for (int i = 0; i < instructions.Count - 1; i++)
-		{
-			if (!Match(i))
+			if (instructions[i].OpCode != CilOpCodes.Call)
 				continue;
-			var ldstrInstruction = instructions[i];
-			var callInstruction = instructions[i + 1];
+			
+			var callInstruction = instructions[i];
 
 			if (callInstruction.Operand is not MemberReference calledMethod)
 				continue;
 			
-			void MakeEdit(FieldDefinition field)
+			void TryMakeEdit(Func<string, FieldDefinition> fieldGetter, string typeName)
 			{
+				var ldstrInstruction = instructions[i - 1];
+				if (ldstrInstruction.OpCode != CilOpCodes.Ldstr)
+				{
+					Config.Logger?.LogWarning($"`{method}`: {typeName} implicit operator with non-constant string found. Consider using 'new StringName' for clarity instead.");
+					return;
+				}
 				if (!hasExpandedMacros)
 				{
 					instructions.ExpandMacros();
 					hasExpandedMacros = true;
 				}
-				instructions[i].ReplaceWith(CilOpCodes.Ldsfld, field);
-				instructions.RemoveAt(i + 1);
+				ldstrInstruction.ReplaceWith(CilOpCodes.Ldsfld, fieldGetter((string)ldstrInstruction.Operand!));
+				instructions.RemoveAt(i);
 			}
 
 			if (IsStringToStringNameImplicitOp(calledMethod))
 			{
-				var field = CacheTypesEmitter.AddStringName((string)ldstrInstruction.Operand!);
-				MakeEdit(field);
+				TryMakeEdit(operand => CacheTypesEmitter.AddStringName(operand), "StringName");
 			}
 			else if (IsStringToNodePathImplicitOp(calledMethod))
 			{
-				var field = CacheTypesEmitter.AddNodePath((string)ldstrInstruction.Operand!);
-				MakeEdit(field);
+				TryMakeEdit(operand => CacheTypesEmitter.AddNodePath(operand), "NodePath");
 			}
 		}
 
