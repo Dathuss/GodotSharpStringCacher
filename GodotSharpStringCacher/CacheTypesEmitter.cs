@@ -66,15 +66,17 @@ internal class CacheTypesEmitter(Context ctx)
 			};
 
 			/*
-				FYI .cctor is the name of a type's static constructor.
-				Writing `static Foo bar = new Foo();` is syntaxic sugar for
-
+				Note: `.cctor` is the name of a type's static constructor.
+				Writing `static Foo bar = new Foo();` is syntax sugar for:
+				
+				```
 				static Foo bar;
-
+				
 				static DeclaringClass()
 				{
 					bar = new Foo();
 				}
+				```
 			*/
 			MethodDefinition cctor = new(".cctor", MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.RuntimeSpecialName | MethodAttributes.SpecialName, staticConstructorSig)
 			{
