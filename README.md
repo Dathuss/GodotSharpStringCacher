@@ -14,7 +14,7 @@ There are different proposals to circumvent this issue, here is mine.
 
 Include the package in your csproj file with
 ```xml
-<PackageReference Include="GodotSharpStringCacher.MSBuild" Version="1.0.0-alpha" />
+<PackageReference Include="GodotSharpStringCacher.MSBuild" Version="1.0.1-alpha" />
 ```
 
 That's it ! The main assembly is now automatically patched.  
@@ -34,17 +34,35 @@ If you want it to affect other packages, use
 
 If you want to test without integrating it, compile `GodotSharpStringCacher.Console`. The syntax is:
 ```
-GodotSharpStringCacher.Console <in_file> <out_file> [--short-names]
+GodotSharpStringCacher.Console <in_file> <out_file> [--long-names] [--no-warn-non-constant-implicit-operator]
 ```
 
-You can browse the resulting assembly and see the results for yourself. (`--short-names` is explained below)
+You can browse the resulting assembly and see the results for yourself.
 
-# Short Names
+# Detailed Configuration
 
-By default, the variables created from your constant string in the assembly closely resemble the string. For example, `"my_input"` creates a variable called `_my_input`. This can help when statically reversing your own project.  
-If you don't want that in a specific assembly, you can add `ShortNames=true`. If you don't want that globally, add  
+## Warning On Implicit Operator With Non Constant
+
+You are encouraged to use the `new` syntax when creating a non-constant StringName/NodePath at run-time. For example
+```csharp
+// don't
+StringName myStr = networkPacket.StringVariable;
+// do
+StringName myStr = new StringName(networkPacket.StringVariable);
+```
+This conveys your intentions better, and you will be warned by default if you don't do this.
+
+To disable this warning (which is not recommended), either use `WarnOnNonConstantImplicitOperator=true` on a specific assembly or add a property like this for global effect:
 ```xml
-<GDStringUseShortNames>true</GDStringUseShortNames>
+<GDStringWarnOnNonConstantImplicitOperator>false</GDStringWarnOnNonConstantImplicitOperator>
+```
+
+## Long Names
+
+By default, the variables created from your constant strings in the assembly have a short numeric name. However, in niche cases, like statically reversing your own project, you may want these variables to have names that resemble their original value. For example, `"my_input"` would create a variable called `_my_input`.
+If you want that in a specific assembly, you can add `LongNames=true`. If you want that globally, add  
+```xml
+<GDStringUseLongNames>true</GDStringUseLongNames>
 ```
 
 # How It Works
