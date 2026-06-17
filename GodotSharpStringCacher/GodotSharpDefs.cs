@@ -1,6 +1,4 @@
-using AsmResolver;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures;
+using Mono.Cecil;
 
 namespace GodotSharpStringCacher;
 
@@ -8,35 +6,37 @@ internal class GodotSharpDefs
 {
 	public readonly ModuleDefinition Module;
 
-	public readonly TypeReference StringNameType;
-	public readonly IMethodDescriptor StringName_StringCtor;
-	public readonly TypeReference NodePathType;
-	public readonly IMethodDescriptor NodePath_StringCtor;
-
-	static readonly Utf8String Utf8String_GodotSharp = "GodotSharp";
+	public readonly TypeDefinition StringNameType;
+	public readonly MethodReference StringName_StringCtor;
+	public readonly TypeDefinition NodePathType;
+	public readonly MethodReference NodePath_StringCtor;
 
 	public static GodotSharpDefs FromReferencingModule(ModuleDefinition module, IAssemblyResolver assemblyResolver)
 	{
-		AssemblyReference godotSharpRef = module.AssemblyReferences.FirstOrDefault(x => x.Name == Utf8String_GodotSharp) ?? throw new NoGodotSharpReferenceExeption(module);
+		AssemblyNameReference godotSharpRef = module.AssemblyReferences.FirstOrDefault(x => string.CompareOrdinal(x.Name, "GodotSharp") == 0) ?? throw new NoGodotSharpReferenceExeption(module);
 
-		ResolutionStatus result = assemblyResolver.Resolve(godotSharpRef, module, out AssemblyDefinition? definition);
+		AssemblyDefinition result = assemblyResolver.Resolve(godotSharpRef);
 
-		if (result != ResolutionStatus.Success)
-			throw new FileLoadException($"Could not load {godotSharpRef}: {result}");
-
-		return new GodotSharpDefs(definition!.ManifestModule!);
+		return new GodotSharpDefs(result.MainModule);
 	}
 	
 	private GodotSharpDefs(ModuleDefinition godotSharpModule)
 	{
 		Module = godotSharpModule;
-		
-		MethodSignature signature = MethodSignature.CreateInstance(Module.CorLibTypeFactory.Void, [Module.CorLibTypeFactory.String]);
 
-		StringNameType = Module.CreateTypeReference("Godot", "StringName");
-		StringName_StringCtor = StringNameType.CreateMethodReference(".ctor", signature);
+		StringNameType = Module.GetType("Godot.StringName");
+		NodePathType = Module.GetType("Godot.NodePath");
 		
-		NodePathType = Module.CreateTypeReference("Godot", "NodePath");
-		NodePath_StringCtor = NodePathType.CreateMethodReference(".ctor", signature);
+		StringName_StringCtor = StringNameType.Methods.First(x => 
+			x.IsConstructor &&
+			x.Parameters.Count == 1 &&
+			x.Parameters[0].ParameterType.FullName == "System.String"
+		);
+
+		NodePath_StringCtor = NodePathType.Methods.First(x => 
+			x.IsConstructor &&
+			x.Parameters.Count == 1 &&
+			x.Parameters[0].ParameterType.FullName == "System.String"
+		);
 	}
 }

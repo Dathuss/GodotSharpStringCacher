@@ -1,4 +1,4 @@
-using AsmResolver.DotNet;
+using Mono.Cecil;
 
 namespace GodotSharpStringCacher;
 

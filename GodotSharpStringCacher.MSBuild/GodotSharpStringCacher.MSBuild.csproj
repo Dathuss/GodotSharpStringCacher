@@ -23,7 +23,7 @@
 	<Content Include="$(MSBuildProjectName).targets" Pack="true" PackagePath="build" />
 	<Content Include="$(OutputPath)GodotSharpStringCacher.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
 
-	<Content Include="$(OutputPath)AsmResolver*.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil*.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
   </ItemGroup>
 
 </Project>

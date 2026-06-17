@@ -1,8 +1,5 @@
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures;
-using AsmResolver.PE.DotNet.Metadata.Tables;
-using AsmResolver.DotNet.Code.Cil;
-using AsmResolver.PE.DotNet.Cil;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace GodotSharpStringCacher;
 
@@ -14,16 +11,8 @@ internal class CacheTypesEmitter(Context ctx)
 	internal readonly Dictionary<string, FieldDefinition> StringNamesToCache = [];
 	internal readonly Dictionary<string, FieldDefinition> NodePathsToCache = [];
 
-	FieldSignature? StringNameFieldSig = null;
-	FieldSignature? NodePathFieldSig = null;
-
-	public void Reset(bool regenerateSignatures)
+	public void Reset()
 	{
-		if (regenerateSignatures)
-		{
-			StringNameFieldSig = new FieldSignature(ctx.Imported_StringNameType.ToTypeSignature(false));
-			NodePathFieldSig = new FieldSignature(ctx.Imported_NodePathType.ToTypeSignature(false));
-		}
 		StringNamesToCache.Clear();
 		NodePathsToCache.Clear();
 	}
@@ -34,7 +23,7 @@ internal class CacheTypesEmitter(Context ctx)
 			return fld;
 
 		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, StringNamesToCache.Values) : $"_{StringNamesToCache.Count}";
-		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static, StringNameFieldSig);
+		FieldDefinition field = new (fieldName, FieldAttributes.Public | FieldAttributes.Static, ctx.Imported_StringNameType);
 		StringNamesToCache.Add(value, field);
 		return field;
 	}
@@ -45,7 +34,7 @@ internal class CacheTypesEmitter(Context ctx)
 			return fld;
 		
 		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, NodePathsToCache.Values) : $"_{NodePathsToCache.Count}";
-		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static, NodePathFieldSig);
+		FieldDefinition field = new (fieldName, FieldAttributes.Public | FieldAttributes.Static, ctx.Imported_NodePathType);
 		NodePathsToCache.Add(value, field);
 		return field;
 	}
@@ -55,15 +44,9 @@ internal class CacheTypesEmitter(Context ctx)
 	/// </summary
 	public void EmitTypes()
 	{
-		ITypeDefOrRef objectType = ctx.Module.CorLibTypeFactory.Object.GetUnderlyingTypeDefOrRef();
-		MethodSignature staticConstructorSig = new(CallingConventionAttributes.Default, ctx.Module.CorLibTypeFactory.Void, null);
-		
-		TypeDefinition EmitType(string name, Dictionary<string, FieldDefinition> namesToCache, IMethodDescriptor ctorMethod)
+		TypeDefinition EmitType(string name, Dictionary<string, FieldDefinition> namesToCache, MethodReference ctorMethod)
 		{
-			TypeDefinition type = new(null, name, TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit)
-			{
-				BaseType = objectType
-			};
+			TypeDefinition type = new("", name, TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit, ctx.Module.TypeSystem.Object);
 
 			/*
 				Note: `.cctor` is the name of a type's static constructor.
@@ -78,26 +61,21 @@ internal class CacheTypesEmitter(Context ctx)
 				}
 				```
 			*/
-			MethodDefinition cctor = new(".cctor", MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.RuntimeSpecialName | MethodAttributes.SpecialName, staticConstructorSig)
-			{
-				CilMethodBody = new CilMethodBody()
-			};
-			CilInstructionCollection instructions = cctor.CilMethodBody.Instructions;
-
+			MethodDefinition cctor = new(".cctor", MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName, ctx.Module.TypeSystem.Void);
+			ILProcessor processor = cctor.Body.GetILProcessor();
+			
 			foreach (var kv in namesToCache)
 			{
 				string value = kv.Key;
 				FieldDefinition field = kv.Value;
-
 				type.Fields.Add(field);
-
-				instructions.Add(CilOpCodes.Ldstr, value);
-				instructions.Add(CilOpCodes.Newobj, ctorMethod);
-				instructions.Add(CilOpCodes.Stsfld, field);
+				processor.Emit(OpCodes.Ldstr, value);
+				processor.Emit(OpCodes.Newobj, ctorMethod);
+				processor.Emit(OpCodes.Stsfld, field);
 			}
-			instructions.Add(CilOpCodes.Ret);
+			processor.Emit(OpCodes.Ret);
 			type.Methods.Add(cctor);
-			ctx.Module.TopLevelTypes.Add(type);
+			ctx.Module.Types.Add(type);
 
 			return type;
 		}

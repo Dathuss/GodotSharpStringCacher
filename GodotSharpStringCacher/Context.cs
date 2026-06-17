@@ -1,7 +1,7 @@
-﻿using AsmResolver;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Code.Cil;
-using AsmResolver.PE.DotNet.Cil;
+﻿using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
+using Mono.Collections.Generic;
 
 namespace GodotSharpStringCacher;
 
@@ -11,18 +11,16 @@ public class Context
 
 	internal ModuleDefinition Module { get; private set; } = null!;
 
-	internal RuntimeContext RuntimeContext { get; private set; } = null!;
-
 	internal string FileName { get; private set; } = null!;
 
 	internal string? LastRunDirectory { get; private set; } = null;
 
 	internal GodotSharpDefs Defs { get; private set; } = null!;
 
-	internal ITypeDefOrRef Imported_StringNameType { get; private set; } = null!;
-	internal IMethodDescriptor Imported_StringName_StringCtor { get; private set; } = null!; 
-	internal ITypeDefOrRef Imported_NodePathType { get; private set; } = null!;
-	internal IMethodDescriptor Imported_NodePath_StringCtor { get; private set; } = null!;
+	internal TypeReference Imported_StringNameType { get; private set; } = null!;
+	internal MethodReference Imported_StringName_StringCtor { get; private set; } = null!; 
+	internal TypeReference Imported_NodePathType { get; private set; } = null!;
+	internal MethodReference Imported_NodePath_StringCtor { get; private set; } = null!;
 
 	internal readonly CacheTypesEmitter CacheTypesEmitter;
 
@@ -36,40 +34,43 @@ public class Context
 	public int NumberOfStringNamesWritten { get; set; }
 	public int NumberOfNodePathsWritten { get; set; }
 
-	static readonly Utf8String Utf8String_op_Implicit = "op_Implicit";
-	static readonly Utf8String Utf8String_cctor = ".cctor";
-
 	public void RunAndSave(string inputFile, string outputFile)
 	{
 		FileName = inputFile;
+		Module = ModuleDefinition.ReadModule(FileName);
 
 		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
 		if (LastRunDirectory == null || LastRunDirectory != directory)
 		{
-			Module = ModuleDefinition.FromFile(FileName, createRuntimeContext: true);
-			RuntimeContext = Module.RuntimeContext!;
-
 			// since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
-			PathAssemblyResolver resolver = PathAssemblyResolver.FromSearchDirectories([directory]);
+			DefaultAssemblyResolver resolver = new();
+			resolver.AddSearchDirectory(directory);
 
 			Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
-			Imported_StringNameType = Module.DefaultImporter.ImportType(Defs.StringNameType);
-			Imported_StringName_StringCtor = Module.DefaultImporter.ImportMethod(Defs.StringName_StringCtor);
-			Imported_NodePathType = Module.DefaultImporter.ImportType(Defs.NodePathType);
-			Imported_NodePath_StringCtor = Module.DefaultImporter.ImportMethod(Defs.NodePath_StringCtor);
+			Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
+			Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
+			Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
+			Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
 			
-			CacheTypesEmitter.Reset(true);
 			LastRunDirectory = directory;
 		}
-		else
-		{
-			Module = RuntimeContext.LoadAssembly(inputFile).ManifestModule ?? throw new NullReferenceException("ManifestModule is null");
-			CacheTypesEmitter.Reset(false);
-		}
+		CacheTypesEmitter.Reset();
 
-		foreach (TypeDefinition moduleType in Module.GetAllTypes())
+		foreach (TypeDefinition moduleType in Module.Types)
 		{
 			PatchType(moduleType);
+
+			// Recursively patch nested types
+			void NestedTypeWalk(TypeDefinition type)
+			{
+				foreach (TypeDefinition nestedType in type.NestedTypes)
+				{
+					PatchType(nestedType);
+					NestedTypeWalk(nestedType);
+				}
+			}
+
+			NestedTypeWalk(moduleType);
 		}
 		CacheTypesEmitter.EmitTypes();
 		Module.Write(outputFile);
@@ -81,19 +82,19 @@ public class Context
 	{
 		foreach (MethodDefinition typeMethod in type.Methods)
 		{
-			if (typeMethod.CilMethodBody == null)
+			if (typeMethod.Body == null)
 				continue;
 
 			// No need to patch if we're already in a static constructor
-			if (typeMethod.Name != Utf8String_cctor)
+			if (string.CompareOrdinal(typeMethod.Name, ".cctor") != 0)
 				MatchAndPatch(typeMethod);
 		}
 	}
 
 	void MatchAndPatch(MethodDefinition method)
 	{
-		CilInstructionCollection instructions = method.CilMethodBody!.Instructions;
-		bool hasExpandedMacros = false;
+		Collection<Instruction> instructions = method.Body.Instructions;
+		bool hasSimplifiedMacros = false;
 
 		// We are looking for this pattern:
 		// IL ldstr "MY_CONSTANT"
@@ -104,30 +105,35 @@ public class Context
 
 		for (int i = 1; i < instructions.Count; i++)
 		{
-			if (instructions[i].OpCode != CilOpCodes.Call)
+			if (instructions[i].OpCode != OpCodes.Call)
 				continue;
 			
-			CilInstruction callInstruction = instructions[i];
-
-			if (callInstruction.Operand is not MemberReference calledMethod)
-				continue;
+			Instruction callInstruction = instructions[i];
+			MethodReference calledMethod = (MethodReference)callInstruction.Operand;
 			
 			void TryMakeEdit(Func<string, FieldDefinition> fieldGetter, string typeName)
 			{
-				CilInstruction ldstrInstruction = instructions[i - 1];
-				if (ldstrInstruction.OpCode != CilOpCodes.Ldstr)
+				Instruction ldstrInstruction = instructions[i - 1];
+				if (ldstrInstruction.OpCode != OpCodes.Ldstr)
 				{
 					if (Config.WarnOnNonConstantImplicitOperator)
 						Config.Logger?.LogWarning($"`{method}`: {typeName} implicit operator with non-constant string found. Consider using 'new StringName' for clarity instead.");
 					return;
 				}
-				if (!hasExpandedMacros)
+				if (!hasSimplifiedMacros)
 				{
-					instructions.ExpandMacros();
-					hasExpandedMacros = true;
+					method.Body.SimplifyMacros();
+					hasSimplifiedMacros = true;
 				}
-				ldstrInstruction.ReplaceWith(CilOpCodes.Ldsfld, fieldGetter((string)ldstrInstruction.Operand!));
-				instructions.RemoveAt(i);
+				// Mono.Cecil has a bug where if you replace an instruction, branches that point
+				// to the previous Instruction object are not updated. This will lead to the corruption of the
+				// method body when rebuilding the assembly
+				// The easiest and fastest way to circumvent this is to directly edit the fields
+				// of the Instruction object so as not to invalidate the reference.
+				ldstrInstruction.OpCode = OpCodes.Ldsfld;
+				ldstrInstruction.Operand = fieldGetter((string)ldstrInstruction.Operand);
+				callInstruction.OpCode = OpCodes.Nop;
+				callInstruction.Operand = null;
 			}
 
 			if (IsStringToStringNameImplicitOp(calledMethod))
@@ -140,25 +146,25 @@ public class Context
 			}
 		}
 
-		if (hasExpandedMacros)
-			instructions.OptimizeMacros();
+		if (hasSimplifiedMacros)
+			method.Body.OptimizeMacros();
 	}
 
-	static bool IsStringToStringNameImplicitOp(IMethodDefOrRef method)
+	static bool IsStringToStringNameImplicitOp(MethodReference method)
 	{
-		return method.Name == Utf8String_op_Implicit &&
-			string.CompareOrdinal(method.DeclaringType?.FullName, "Godot.StringName") == 0 &&
-			string.CompareOrdinal(method.Signature!.ReturnType.FullName, "Godot.StringName") == 0 &&
-			method.Signature.GetTotalParameterCount() == 1 &&
-			string.CompareOrdinal(method.Signature.ParameterTypes[0].FullName, "System.String") == 0;
+		return string.CompareOrdinal(method.Name, "op_Implicit") == 0 &&
+			string.CompareOrdinal(method.DeclaringType.FullName, "Godot.StringName") == 0 &&
+			string.CompareOrdinal(method.ReturnType.FullName, "Godot.StringName") == 0 &&
+			method.Parameters.Count == 1 &&
+			string.CompareOrdinal(method.Parameters[0].ParameterType.FullName, "System.String") == 0;
 	}
 
-	static bool IsStringToNodePathImplicitOp(IMethodDefOrRef method)
+	static bool IsStringToNodePathImplicitOp(MethodReference method)
 	{
-		return method.Name == Utf8String_op_Implicit &&
-			string.CompareOrdinal(method.DeclaringType?.FullName, "Godot.NodePath") == 0 &&
-			string.CompareOrdinal(method.Signature!.ReturnType.FullName, "Godot.NodePath") == 0 &&
-			method.Signature.GetTotalParameterCount() == 1 &&
-			string.CompareOrdinal(method.Signature.ParameterTypes[0].FullName, "System.String") == 0;
+		return string.CompareOrdinal(method.Name, "op_Implicit") == 0 &&
+			string.CompareOrdinal(method.DeclaringType.FullName, "Godot.NodePath") == 0 &&
+			string.CompareOrdinal(method.ReturnType.FullName, "Godot.NodePath") == 0 &&
+			method.Parameters.Count == 1 &&
+			string.CompareOrdinal(method.Parameters[0].ParameterType.FullName, "System.String") == 0;
 	}
 }
