@@ -18,7 +18,7 @@ static class Program
 		bool longNames = false;
 		bool warnOnNonConstantImplicitOperator = true;
 
-		foreach (var arg in args)
+		foreach (string arg in args)
 		{
 			if (arg == "--long-names")
 				longNames = true;
@@ -47,10 +47,10 @@ static class Program
 	{
 		try
 		{
-			var parameters = ParseParams(args);
-			if (parameters == null)
+			Params? parameters = ParseParams(args);
+			if (parameters is null)
 				return;
-			var ctx = new Context(parameters.Config);
+			Context ctx = new(parameters.Config);
 			ctx.RunAndSave(parameters.InFile, parameters.OutFile);
 		}
 		catch (NoGodotSharpReferenceExeption ex)

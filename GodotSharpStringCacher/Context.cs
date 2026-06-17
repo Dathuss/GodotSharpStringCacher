@@ -1,10 +1,14 @@
+﻿using AsmResolver;
 using AsmResolver.DotNet;
+using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.PE.DotNet.Cil;
 
 namespace GodotSharpStringCacher;
 
 public class Context
 {
+	public Config Config { get; set; }
+
 	internal ModuleDefinition Module { get; private set; } = null!;
 
 	internal RuntimeContext RuntimeContext { get; private set; } = null!;
@@ -12,8 +16,6 @@ public class Context
 	internal string FileName { get; private set; } = null!;
 
 	internal string? LastRunDirectory { get; private set; } = null;
-
-	public Config Config { get; set; }
 
 	internal GodotSharpDefs Defs { get; private set; } = null!;
 
@@ -28,24 +30,27 @@ public class Context
 	{
 		Config = config ?? Config.Default;
 
-		CacheTypesEmitter = new(this);
+		CacheTypesEmitter = new CacheTypesEmitter(this);
 	}
 
 	public int NumberOfStringNamesWritten { get; set; }
 	public int NumberOfNodePathsWritten { get; set; }
 
+	static readonly Utf8String Utf8String_op_Implicit = "op_Implicit";
+	static readonly Utf8String Utf8String_cctor = ".cctor";
+
 	public void RunAndSave(string inputFile, string outputFile)
 	{
 		FileName = inputFile;
 
-		var directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
+		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
 		if (LastRunDirectory == null || LastRunDirectory != directory)
 		{
 			Module = ModuleDefinition.FromFile(FileName, createRuntimeContext: true);
 			RuntimeContext = Module.RuntimeContext!;
 
 			// since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
-			var resolver = PathAssemblyResolver.FromSearchDirectories([directory]);
+			PathAssemblyResolver resolver = PathAssemblyResolver.FromSearchDirectories([directory]);
 
 			Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
 			Imported_StringNameType = Module.DefaultImporter.ImportType(Defs.StringNameType);
@@ -62,7 +67,7 @@ public class Context
 			CacheTypesEmitter.Reset(false);
 		}
 
-		foreach (var moduleType in Module.GetAllTypes())
+		foreach (TypeDefinition moduleType in Module.GetAllTypes())
 		{
 			PatchType(moduleType);
 		}
@@ -74,17 +79,20 @@ public class Context
 
 	void PatchType(TypeDefinition type)
 	{
-		foreach (var typeMethod in type.Methods.Where(x => x.CilMethodBody != null))
+		foreach (MethodDefinition typeMethod in type.Methods)
 		{
+			if (typeMethod.CilMethodBody == null)
+				continue;
+
 			// No need to patch if we're already in a static constructor
-			if (typeMethod.Name != ".cctor")
+			if (typeMethod.Name != Utf8String_cctor)
 				MatchAndPatch(typeMethod);
 		}
 	}
 
 	void MatchAndPatch(MethodDefinition method)
 	{
-		var instructions = method.CilMethodBody!.Instructions;
+		CilInstructionCollection instructions = method.CilMethodBody!.Instructions;
 		bool hasExpandedMacros = false;
 
 		// We are looking for this pattern:
@@ -99,14 +107,14 @@ public class Context
 			if (instructions[i].OpCode != CilOpCodes.Call)
 				continue;
 			
-			var callInstruction = instructions[i];
+			CilInstruction callInstruction = instructions[i];
 
 			if (callInstruction.Operand is not MemberReference calledMethod)
 				continue;
 			
 			void TryMakeEdit(Func<string, FieldDefinition> fieldGetter, string typeName)
 			{
-				var ldstrInstruction = instructions[i - 1];
+				CilInstruction ldstrInstruction = instructions[i - 1];
 				if (ldstrInstruction.OpCode != CilOpCodes.Ldstr)
 				{
 					if (Config.WarnOnNonConstantImplicitOperator)
@@ -138,7 +146,7 @@ public class Context
 
 	static bool IsStringToStringNameImplicitOp(IMethodDefOrRef method)
 	{
-		return method.Name == "op_Implicit" &&
+		return method.Name == Utf8String_op_Implicit &&
 			string.CompareOrdinal(method.DeclaringType?.FullName, "Godot.StringName") == 0 &&
 			string.CompareOrdinal(method.Signature!.ReturnType.FullName, "Godot.StringName") == 0 &&
 			method.Signature.GetTotalParameterCount() == 1 &&
@@ -147,7 +155,7 @@ public class Context
 
 	static bool IsStringToNodePathImplicitOp(IMethodDefOrRef method)
 	{
-		return method.Name == "op_Implicit" &&
+		return method.Name == Utf8String_op_Implicit &&
 			string.CompareOrdinal(method.DeclaringType?.FullName, "Godot.NodePath") == 0 &&
 			string.CompareOrdinal(method.Signature!.ReturnType.FullName, "Godot.NodePath") == 0 &&
 			method.Signature.GetTotalParameterCount() == 1 &&

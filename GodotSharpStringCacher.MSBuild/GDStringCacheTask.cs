@@ -65,9 +65,9 @@ public class GDStringCacheTask : Task
 
 	public override bool Execute()
 	{
-		var logger = new SimpleLogger(this);
-		var defaultConfig = new Config(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, logger);
-		var ctx = new Context(defaultConfig);
+		SimpleLogger logger = new(this);
+		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, logger);
+		Context ctx = new(defaultConfig);
 
 		if (CacheMainAssemblyStrings)
 		{
@@ -75,22 +75,23 @@ public class GDStringCacheTask : Task
 				return false;
 		}
 
-		var packagesToPatch = PackageReference.Where(x => GetBoolMetadata(x, "CacheStrings")).ToDictionary(x => x.ItemSpec);
-		var assemblyNamesToPatch = CacheStrings.ToDictionary(x => x.ItemSpec);
+		Dictionary<string, ITaskItem> packagesToPatch = PackageReference.Where(x => GetBoolMetadata(x, "CacheStrings")).ToDictionary(x => x.ItemSpec);
+		Dictionary<string, ITaskItem> assemblyNamesToPatch = CacheStrings.ToDictionary(x => x.ItemSpec);
 
-		foreach (var reference in ReferencePath)
+		foreach (ITaskItem reference in ReferencePath)
 		{
-			var fileName = reference.GetMetadata("FileName");
+			string fileName = reference.GetMetadata("FileName");
 			ITaskItem assemblyTask;
 
 			// Checks for <ProjectReference> and <Reference>
 			if (GetBoolMetadata(reference, "CacheStrings")) { assemblyTask = reference; }
 			// Checks for <PackageReference>
-			else if (TryGetMetadata(reference, "NuGetPackageId", out var nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId, out assemblyTask)) { }
+			else if (TryGetMetadata(reference, "NuGetPackageId", out string nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId, out assemblyTask)) { }
 			// Checks for <CacheStrings>
 			else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTask)) { }
 			else continue;
-			var fullPath = reference.GetMetadata("FullPath");
+
+			string fullPath = reference.GetMetadata("FullPath");
 
 			ctx.Config = ParseConfig(assemblyTask, defaultConfig);
 			if (!CacheOne(ctx, fullPath, fileName))
@@ -109,7 +110,7 @@ public class GDStringCacheTask : Task
 			return HasMetadata(taskWithOptions, name) ? GetBoolMetadata(taskWithOptions, name) : fallback;
 		}
 
-		return new(
+		return new Config(
 			GetBool("LongNames", defaultConfig.UseLongNames),
 			GetBool("WarnOnNonConstantImplicitOperator", defaultConfig.WarnOnNonConstantImplicitOperator),
 			defaultConfig.Logger);

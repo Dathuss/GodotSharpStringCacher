@@ -11,18 +11,18 @@ internal class CacheTypesEmitter(Context ctx)
 	public const string STRING_NAME_CACHE_TYPE_NAME = "?_StringNameCache";
 	public const string NODE_PATH_CACHE_TYPE_NAME = "?_NodePathCache";
 
-	FieldSignature StringNameFieldSig = null!;
-	FieldSignature NodePathFieldSig = null!;
-
 	internal readonly Dictionary<string, FieldDefinition> StringNamesToCache = [];
 	internal readonly Dictionary<string, FieldDefinition> NodePathsToCache = [];
+
+	FieldSignature? StringNameFieldSig = null;
+	FieldSignature? NodePathFieldSig = null;
 
 	public void Reset(bool regenerateSignatures)
 	{
 		if (regenerateSignatures)
 		{
-			StringNameFieldSig = new(ctx.Imported_StringNameType.ToTypeSignature(false));
-			NodePathFieldSig = new(ctx.Imported_NodePathType.ToTypeSignature(false));
+			StringNameFieldSig = new FieldSignature(ctx.Imported_StringNameType.ToTypeSignature(false));
+			NodePathFieldSig = new FieldSignature(ctx.Imported_NodePathType.ToTypeSignature(false));
 		}
 		StringNamesToCache.Clear();
 		NodePathsToCache.Clear();
@@ -30,21 +30,22 @@ internal class CacheTypesEmitter(Context ctx)
 
 	public FieldDefinition AddStringName(string value)
 	{
-		if (StringNamesToCache.TryGetValue(value, out var fld))
+		if (StringNamesToCache.TryGetValue(value, out FieldDefinition? fld))
 			return fld;
-		var fieldName = ctx.Config.UseLongNames ? GetFieldName(value, StringNamesToCache.Values) : $"_{StringNamesToCache.Count}";
-		var field = new FieldDefinition(fieldName, FieldAttributes.Public | FieldAttributes.Static, StringNameFieldSig);
+
+		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, StringNamesToCache.Values) : $"_{StringNamesToCache.Count}";
+		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static, StringNameFieldSig);
 		StringNamesToCache.Add(value, field);
 		return field;
 	}
 
 	public FieldDefinition AddNodePath(string value)
 	{
-		if (NodePathsToCache.TryGetValue(value, out var fld))
+		if (NodePathsToCache.TryGetValue(value, out FieldDefinition? fld))
 			return fld;
 		
-		var fieldName = ctx.Config.UseLongNames ? GetFieldName(value, NodePathsToCache.Values) : $"_{NodePathsToCache.Count}";
-		var field = new FieldDefinition(fieldName, FieldAttributes.Public | FieldAttributes.Static, NodePathFieldSig);
+		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, NodePathsToCache.Values) : $"_{NodePathsToCache.Count}";
+		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static, NodePathFieldSig);
 		NodePathsToCache.Add(value, field);
 		return field;
 	}
@@ -54,11 +55,12 @@ internal class CacheTypesEmitter(Context ctx)
 	/// </summary
 	public void EmitTypes()
 	{
-		var objectType = ctx.Module.CorLibTypeFactory.Object.GetUnderlyingTypeDefOrRef();
-		var staticConstructorSig = new MethodSignature(CallingConventionAttributes.Default, ctx.Module.CorLibTypeFactory.Void, null);
+		ITypeDefOrRef objectType = ctx.Module.CorLibTypeFactory.Object.GetUnderlyingTypeDefOrRef();
+		MethodSignature staticConstructorSig = new(CallingConventionAttributes.Default, ctx.Module.CorLibTypeFactory.Void, null);
+		
 		TypeDefinition EmitType(string name, Dictionary<string, FieldDefinition> namesToCache, IMethodDescriptor ctorMethod)
 		{
-			var type = new TypeDefinition("", name, TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit)
+			TypeDefinition type = new(null, name, TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit)
 			{
 				BaseType = objectType
 			};
@@ -74,16 +76,17 @@ internal class CacheTypesEmitter(Context ctx)
 					bar = new Foo();
 				}
 			*/
-			var cctor = new MethodDefinition(".cctor", MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.RuntimeSpecialName | MethodAttributes.SpecialName, staticConstructorSig)
+			MethodDefinition cctor = new(".cctor", MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.RuntimeSpecialName | MethodAttributes.SpecialName, staticConstructorSig)
 			{
 				CilMethodBody = new CilMethodBody()
 			};
-			var instructions = cctor.CilMethodBody.Instructions;
+			CilInstructionCollection instructions = cctor.CilMethodBody.Instructions;
 
 			foreach (var kv in namesToCache)
 			{
-				var value = kv.Key;
-				var field = kv.Value;
+				string value = kv.Key;
+				FieldDefinition field = kv.Value;
+
 				type.Fields.Add(field);
 
 				instructions.Add(CilOpCodes.Ldstr, value);
@@ -111,20 +114,16 @@ internal class CacheTypesEmitter(Context ctx)
 	/// <param name="existingFields">Existing field names to check for duplicates</param>
 	string GetFieldName(string value, ICollection<FieldDefinition> existingFields)
 	{
-		// TODO: surely it can't be that simple, even if CIL accepts unicode
 		string sanitized = value.Replace(' ', '_');
-
 		string attempt = $"_{sanitized}";
-		// Check if a field already has this name
-		if (!existingFields.Any(x => x.Name == attempt))
-			return attempt;
+
 		int trailing = 0;
-		do
+		while (existingFields.Any(x => x.Name == attempt))
 		{
 			attempt = $"_{sanitized}_{trailing}";
 			trailing++;
 		}
-		while (existingFields.Any(x => x.Name == attempt));
+
 		return attempt;
 	}
 }
