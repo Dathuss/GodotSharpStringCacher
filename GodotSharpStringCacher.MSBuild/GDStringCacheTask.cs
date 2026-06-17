@@ -26,7 +26,10 @@ public class GDStringCacheTask : Task
 	public bool CacheMainAssemblyStrings { get; set; }
 
 	[Required]
-	public ITaskItem[] CacheStrings { get; private set; }
+	public ITaskItem[] CacheStrings { get; set; }
+
+	[Required]
+	public bool WarnOnNonConstantImplicitOperator { get; set; }
 
 	[Required]
 	public bool UseLongNamesByDefault { get; set; }
@@ -63,7 +66,7 @@ public class GDStringCacheTask : Task
 	public override bool Execute()
 	{
 		var logger = new SimpleLogger(this);
-		var defaultConfig = new Config(UseLongNamesByDefault, logger);
+		var defaultConfig = new Config(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, logger);
 		var ctx = new Context(defaultConfig);
 
 		if (CacheMainAssemblyStrings)
@@ -106,7 +109,10 @@ public class GDStringCacheTask : Task
 			return HasMetadata(taskWithOptions, name) ? GetBoolMetadata(taskWithOptions, name) : fallback;
 		}
 
-		return new(GetBool("LongNames", defaultConfig.UseLongNames), defaultConfig.Logger);
+		return new(
+			GetBool("LongNames", defaultConfig.UseLongNames),
+			GetBool("WarnOnNonConstantImplicitOperator", defaultConfig.WarnOnNonConstantImplicitOperator),
+			defaultConfig.Logger);
 	}
 
 	static bool HasMetadata(ITaskItem taskItem, string name) => ((ICollection<string>)taskItem.MetadataNames).Contains(name);

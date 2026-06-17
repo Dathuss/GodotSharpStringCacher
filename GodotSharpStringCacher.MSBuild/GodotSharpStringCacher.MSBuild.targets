@@ -7,6 +7,8 @@
     <GDStringCacheAfterTargets Condition="'$(GDStringCacheAfterTargets)' == ''">Build</GDStringCacheAfterTargets>
 	<!-- The main assembly is cached by default. If, for some reason, you don't want to, you can -->
 	<GDStringCacheMainAssemblyStrings Condition="'$(GDStringCacheMainAssemblyStrings)' == ''">true</GDStringCacheMainAssemblyStrings>
+	<!-- Warn user if implicit string operator is used on non-constant -->
+	<GDStringWarnOnNonConstantImplicitOperator Condition="'$(GDStringWarnOnNonConstantImplicitOperator)' == ''">true</GDStringWarnOnNonConstantImplicitOperator>
 	<!-- Use long variable names that look like the literal string value -->
 	<!-- This value can be overriden at the declaration level -->
 	<GDStringUseLongNames Condition="'$(GDStringUseLongNames)' == ''">false</GDStringUseLongNames>
@@ -21,12 +23,14 @@
 		
 	    CacheMainAssemblyStrings="$(GDStringCacheMainAssemblyStrings)"
 		CacheStrings="@(CacheStrings)"
+		WarnOnNonConstantImplicitOperator="$(GDStringWarnOnNonConstantImplicitOperator)"
 		UseLongNamesByDefault="$(GDStringUseLongNames)" />
   </Target>
 
   <ItemDefinitionGroup>
     <CacheStrings>
       <LongNames>$(GDStringUseLongNames)</LongNames>
+	  <WarnOnNonConstantImplicitOperator>$(GDStringWarnOnNonConstantImplicitOperator)</WarnOnNonConstantImplicitOperator>
 	</CacheStrings>
   </ItemDefinitionGroup>
 

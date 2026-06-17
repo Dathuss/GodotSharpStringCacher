@@ -109,7 +109,8 @@ public class Context
 				var ldstrInstruction = instructions[i - 1];
 				if (ldstrInstruction.OpCode != CilOpCodes.Ldstr)
 				{
-					Config.Logger?.LogWarning($"`{method}`: {typeName} implicit operator with non-constant string found. Consider using 'new StringName' for clarity instead.");
+					if (Config.WarnOnNonConstantImplicitOperator)
+						Config.Logger?.LogWarning($"`{method}`: {typeName} implicit operator with non-constant string found. Consider using 'new StringName' for clarity instead.");
 					return;
 				}
 				if (!hasExpandedMacros)
