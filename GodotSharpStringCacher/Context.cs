@@ -58,21 +58,18 @@ public class Context
 
 		foreach (TypeDefinition moduleType in Module.Types)
 		{
-			PatchType(moduleType);
-
-			// Recursively patch nested types
-			void NestedTypeWalk(TypeDefinition type)
+			void PatchTypeAndNestedTypes(TypeDefinition type)
 			{
+				PatchType(type);
 				foreach (TypeDefinition nestedType in type.NestedTypes)
 				{
-					PatchType(nestedType);
-					NestedTypeWalk(nestedType);
+					PatchTypeAndNestedTypes(nestedType);
 				}
 			}
-
-			NestedTypeWalk(moduleType);
+			PatchTypeAndNestedTypes(moduleType);
 		}
 		CacheTypesEmitter.EmitTypes();
+
 		// Test if the input and output files are the same
 		if (string.Equals(Path.GetFullPath(inputFile), Path.GetFullPath(outputFile), Environment.OSVersion.Platform == PlatformID.Win32NT ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
 		{
@@ -81,7 +78,7 @@ public class Context
 			string temp = Path.GetTempFileName();
 			Module.Write(temp);
 			// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
-			// we delete it manually
+			// So we delete it manually.
 			File.Delete(inputFile);
 			File.Move(temp, outputFile);
 			Module.Dispose();
@@ -91,6 +88,7 @@ public class Context
 			Module.Write(outputFile);
 			Module.Dispose();
 		}
+
 		NumberOfStringNamesWritten = CacheTypesEmitter.StringNamesToCache.Count;
 		NumberOfNodePathsWritten = CacheTypesEmitter.NodePathsToCache.Count;
 	}

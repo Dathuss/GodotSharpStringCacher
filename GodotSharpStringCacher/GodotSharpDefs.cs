@@ -13,7 +13,7 @@ internal class GodotSharpDefs
 
 	public static GodotSharpDefs FromReferencingModule(ModuleDefinition module, IAssemblyResolver assemblyResolver)
 	{
-		AssemblyNameReference godotSharpRef = module.AssemblyReferences.FirstOrDefault(x => string.CompareOrdinal(x.Name, "GodotSharp") == 0) ?? throw new NoGodotSharpReferenceExeption(module);
+		AssemblyNameReference godotSharpRef = module.AssemblyReferences.FirstOrDefault(x => x.Name.Equals("GodotSharp", StringComparison.Ordinal)) ?? throw new NoGodotSharpReferenceExeption(module);
 
 		AssemblyDefinition result = assemblyResolver.Resolve(godotSharpRef);
 

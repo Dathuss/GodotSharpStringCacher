@@ -23,7 +23,7 @@ internal class CacheTypesEmitter(Context ctx)
 			return fld;
 
 		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, StringNamesToCache.Values) : $"_{StringNamesToCache.Count}";
-		FieldDefinition field = new (fieldName, FieldAttributes.Public | FieldAttributes.Static, ctx.Imported_StringNameType);
+		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static, ctx.Imported_StringNameType);
 		StringNamesToCache.Add(value, field);
 		return field;
 	}
@@ -34,7 +34,7 @@ internal class CacheTypesEmitter(Context ctx)
 			return fld;
 		
 		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, NodePathsToCache.Values) : $"_{NodePathsToCache.Count}";
-		FieldDefinition field = new (fieldName, FieldAttributes.Public | FieldAttributes.Static, ctx.Imported_NodePathType);
+		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static, ctx.Imported_NodePathType);
 		NodePathsToCache.Add(value, field);
 		return field;
 	}
