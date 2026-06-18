@@ -75,22 +75,14 @@ public class Context
 			}
 			CacheTypesEmitter.EmitTypes();
 
-			// Test if the input and output files are the same
-			if (string.Equals(Path.GetFullPath(inputFile), Path.GetFullPath(outputFile), Environment.OSVersion.Platform == PlatformID.Win32NT ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-			{
-				// Mono.Cecil will not behave correctly if you write to a module to itself
-				// So we write it to memory first, then overwrite the file.
-				string temp = Path.GetTempFileName();
-				Module.Write(temp);
-				// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
-				// So we delete it manually.
-				File.Delete(outputFile);
-				File.Move(temp, outputFile);
-			}
-			else
-			{
-				Module.Write(outputFile);
-			}
+			// Mono.Cecil will not behave correctly if you write to a module to itself
+			// So we write it to memory first, then overwrite the file.
+			string temp = Path.GetTempFileName();
+			Module.Write(temp);
+			// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
+			// So we delete it manually.
+			File.Delete(outputFile);
+			File.Move(temp, outputFile);
 		}
 
 		NumberOfStringNamesWritten = CacheTypesEmitter.StringNamesToCache.Count;
