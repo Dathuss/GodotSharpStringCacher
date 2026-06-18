@@ -40,55 +40,55 @@ public class Context
 
 		using (Module = ModuleDefinition.ReadModule(FileName))
 		{
-		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
-		if (LastRunDirectory == null || LastRunDirectory != directory)
-		{
-			// since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
-			DefaultAssemblyResolver resolver = new();
-			resolver.AddSearchDirectory(directory);
-
-			Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
-			Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
-			Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
-			Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
-			Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
-			
-			LastRunDirectory = directory;
-		}
-		CacheTypesEmitter.Reset();
-
-		foreach (TypeDefinition moduleType in Module.Types)
-		{
-			PatchType(moduleType);
-
-			// Recursively patch nested types
-			void NestedTypeWalk(TypeDefinition type)
+			string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
+			if (LastRunDirectory == null || LastRunDirectory != directory)
 			{
-				foreach (TypeDefinition nestedType in type.NestedTypes)
-				{
-					PatchType(nestedType);
-					NestedTypeWalk(nestedType);
-				}
+				// since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
+				DefaultAssemblyResolver resolver = new();
+				resolver.AddSearchDirectory(directory);
+
+				Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
+				Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
+				Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
+				Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
+				Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
+			
+				LastRunDirectory = directory;
 			}
+			CacheTypesEmitter.Reset();
 
-			NestedTypeWalk(moduleType);
-		}
-		CacheTypesEmitter.EmitTypes();
+			foreach (TypeDefinition moduleType in Module.Types)
+			{
+				PatchType(moduleType);
 
-		// Test if the input and output files are the same
-		if (string.Equals(Path.GetFullPath(inputFile), Path.GetFullPath(outputFile), Environment.OSVersion.Platform == PlatformID.Win32NT ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-		{
-			// Mono.Cecil will not behave correctly if you write to a module to itself
-			// So we write it to memory first, then overwrite the file.
-			using MemoryStream memoryStream = new();
-			Module.Write(memoryStream);
-			using FileStream fileStream = File.Create(outputFile);
-			memoryStream.CopyTo(fileStream);
-		}
-		else
-		{
-			Module.Write(outputFile);
-		}
+				// Recursively patch nested types
+				void NestedTypeWalk(TypeDefinition type)
+				{
+					foreach (TypeDefinition nestedType in type.NestedTypes)
+					{
+						PatchType(nestedType);
+						NestedTypeWalk(nestedType);
+					}
+				}
+
+				NestedTypeWalk(moduleType);
+			}
+			CacheTypesEmitter.EmitTypes();
+
+			// Test if the input and output files are the same
+			if (string.Equals(Path.GetFullPath(inputFile), Path.GetFullPath(outputFile), Environment.OSVersion.Platform == PlatformID.Win32NT ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+			{
+				// Mono.Cecil will not behave correctly if you write to a module to itself
+				// So we write it to memory first, then overwrite the file.
+				using MemoryStream memoryStream = new();
+				Module.Write(memoryStream);
+				using FileStream fileStream = File.Create(outputFile);
+				memoryStream.CopyTo(fileStream);
+			}
+			else
+			{
+				Module.Write(outputFile);
+			}
 		}
 
 		NumberOfStringNamesWritten = CacheTypesEmitter.StringNamesToCache.Count;
