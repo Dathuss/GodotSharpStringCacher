@@ -37,8 +37,9 @@ public class Context
 	public void RunAndSave(string inputFile, string outputFile)
 	{
 		FileName = inputFile;
-		Module = ModuleDefinition.ReadModule(FileName);
 
+		using (Module = ModuleDefinition.ReadModule(FileName))
+		{
 		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
 		if (LastRunDirectory == null || LastRunDirectory != directory)
 		{
@@ -70,23 +71,14 @@ public class Context
 		}
 		CacheTypesEmitter.EmitTypes();
 
-		// Test if the input and output files are the same
-		if (string.Equals(Path.GetFullPath(inputFile), Path.GetFullPath(outputFile), Environment.OSVersion.Platform == PlatformID.Win32NT ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-		{
-			// Mono.Cecil will not behave correctly if you write to a module to itself
-			// So we write it to memory first, then overwrite the file.
-			string temp = Path.GetTempFileName();
-			Module.Write(temp);
-			// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
-			// So we delete it manually.
-			File.Delete(inputFile);
-			File.Move(temp, outputFile);
-			Module.Dispose();
-		}
-		else
-		{
-			Module.Write(outputFile);
-			Module.Dispose();
+		// Mono.Cecil will not behave correctly if you write to a module to itself
+		// So we write it to memory first, then overwrite the file.
+		string temp = Path.GetTempFileName();
+		Module.Write(temp);
+		// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
+		// So we delete it manually.
+		File.Delete(outputFile);
+		File.Move(temp, outputFile);
 		}
 
 		NumberOfStringNamesWritten = CacheTypesEmitter.StringNamesToCache.Count;
