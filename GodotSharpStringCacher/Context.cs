@@ -1,4 +1,4 @@
-﻿using Mono.Cecil;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Mono.Collections.Generic;
@@ -37,8 +37,9 @@ public class Context
 	public void RunAndSave(string inputFile, string outputFile)
 	{
 		FileName = inputFile;
-		Module = ModuleDefinition.ReadModule(FileName);
 
+		using (Module = ModuleDefinition.ReadModule(FileName))
+		{
 		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
 		if (LastRunDirectory == null || LastRunDirectory != directory)
 		{
@@ -58,39 +59,28 @@ public class Context
 
 		foreach (TypeDefinition moduleType in Module.Types)
 		{
-			PatchType(moduleType);
-
-			// Recursively patch nested types
-			void NestedTypeWalk(TypeDefinition type)
+			void PatchTypeAndNestedTypes(TypeDefinition type)
 			{
+				PatchType(type);
 				foreach (TypeDefinition nestedType in type.NestedTypes)
 				{
-					PatchType(nestedType);
-					NestedTypeWalk(nestedType);
+					PatchTypeAndNestedTypes(nestedType);
 				}
 			}
-
-			NestedTypeWalk(moduleType);
+			PatchTypeAndNestedTypes(moduleType);
 		}
 		CacheTypesEmitter.EmitTypes();
-		// Test if the input and output files are the same
-		if (string.Equals(Path.GetFullPath(inputFile), Path.GetFullPath(outputFile), Environment.OSVersion.Platform == PlatformID.Win32NT ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-		{
-			// Mono.Cecil will not behave correctly if you write to a module to itself
-			// So we write it to memory first, then overwrite the file.
-			string temp = Path.GetTempFileName();
-			Module.Write(temp);
-			// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
-			// we delete it manually
-			File.Delete(inputFile);
-			File.Move(temp, outputFile);
-			Module.Dispose();
+
+		// Mono.Cecil will not behave correctly if you write to a module to itself
+		// So we write it to memory first, then overwrite the file.
+		string temp = Path.GetTempFileName();
+		Module.Write(temp);
+		// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
+		// So we delete it manually.
+		File.Delete(outputFile);
+		File.Move(temp, outputFile);
 		}
-		else
-		{
-			Module.Write(outputFile);
-			Module.Dispose();
-		}
+
 		NumberOfStringNamesWritten = CacheTypesEmitter.StringNamesToCache.Count;
 		NumberOfNodePathsWritten = CacheTypesEmitter.NodePathsToCache.Count;
 	}
@@ -103,7 +93,7 @@ public class Context
 				continue;
 
 			// No need to patch if we're already in a static constructor
-			if (string.CompareOrdinal(typeMethod.Name, ".cctor") != 0)
+			if (typeMethod.Name != ".cctor")
 				MatchAndPatch(typeMethod);
 		}
 	}
@@ -169,19 +159,19 @@ public class Context
 
 	static bool IsStringToStringNameImplicitOp(MethodReference method)
 	{
-		return string.CompareOrdinal(method.Name, "op_Implicit") == 0 &&
-			string.CompareOrdinal(method.DeclaringType.FullName, "Godot.StringName") == 0 &&
-			string.CompareOrdinal(method.ReturnType.FullName, "Godot.StringName") == 0 &&
-			method.Parameters.Count == 1 &&
-			string.CompareOrdinal(method.Parameters[0].ParameterType.FullName, "System.String") == 0;
+		return method.Name == "op_Implicit"
+			&& method.DeclaringType.FullName == "Godot.StringName"
+			&& method.ReturnType.FullName == "Godot.StringName"
+			&& method.Parameters.Count == 1
+			&& method.Parameters[0].ParameterType.FullName == "System.String";
 	}
 
 	static bool IsStringToNodePathImplicitOp(MethodReference method)
 	{
-		return string.CompareOrdinal(method.Name, "op_Implicit") == 0 &&
-			string.CompareOrdinal(method.DeclaringType.FullName, "Godot.NodePath") == 0 &&
-			string.CompareOrdinal(method.ReturnType.FullName, "Godot.NodePath") == 0 &&
-			method.Parameters.Count == 1 &&
-			string.CompareOrdinal(method.Parameters[0].ParameterType.FullName, "System.String") == 0;
+		return method.Name == "op_Implicit"
+			&& method.DeclaringType.FullName == "Godot.NodePath"
+			&& method.ReturnType.FullName == "Godot.NodePath"
+			&& method.Parameters.Count == 1
+			&& method.Parameters[0].ParameterType.FullName == "System.String";
 	}
 }
