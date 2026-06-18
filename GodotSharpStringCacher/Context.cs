@@ -80,10 +80,12 @@ public class Context
 			{
 				// Mono.Cecil will not behave correctly if you write to a module to itself
 				// So we write it to memory first, then overwrite the file.
-				using MemoryStream memoryStream = new();
-				Module.Write(memoryStream);
-				using FileStream fileStream = File.Create(outputFile);
-				memoryStream.CopyTo(fileStream);
+				string temp = Path.GetTempFileName();
+				Module.Write(temp);
+				// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
+				// So we delete it manually.
+				File.Delete(outputFile);
+				File.Move(temp, outputFile);
 			}
 			else
 			{
