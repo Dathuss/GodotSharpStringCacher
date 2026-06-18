@@ -69,7 +69,7 @@ If you want that in a specific assembly, you can add `LongNames=true`. If you wa
 
 # How It Works
 
-It executes after your project compiles and directly edits the resulting assembly. It uses [AsmResolver](https://github.com/Washi1337/AsmResolver), a library for assembly exploring and editing.  
+It executes after your project compiles and directly edits the resulting assembly. It uses [Mono.Cecil](https://www.nuget.org/packages/Mono.Cecil), a library for assembly exploring and editing.  
 It looks for calls to these implicit conversion operators, then if the string is a constant, adds its value as a StringName/NodePath to a static class, then replaces the call with the load to this value.
 
 # Bugs and contributing
