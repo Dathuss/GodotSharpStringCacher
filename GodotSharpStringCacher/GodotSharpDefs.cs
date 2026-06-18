@@ -6,9 +6,9 @@ internal class GodotSharpDefs
 {
 	public readonly ModuleDefinition Module;
 
-	public readonly TypeDefinition StringNameType;
+	public readonly TypeReference StringNameType;
 	public readonly MethodReference StringName_StringCtor;
-	public readonly TypeDefinition NodePathType;
+	public readonly TypeReference NodePathType;
 	public readonly MethodReference NodePath_StringCtor;
 
 	public static GodotSharpDefs FromReferencingModule(ModuleDefinition module, IAssemblyResolver assemblyResolver)
@@ -24,19 +24,21 @@ internal class GodotSharpDefs
 	{
 		Module = godotSharpModule;
 
-		StringNameType = Module.GetType("Godot.StringName");
-		NodePathType = Module.GetType("Godot.NodePath");
-		
-		StringName_StringCtor = StringNameType.Methods.First(x => 
-			x.IsConstructor &&
-			x.Parameters.Count == 1 &&
-			x.Parameters[0].ParameterType.FullName == "System.String"
-		);
+		StringNameType = new TypeReference("Godot", "StringName", Module, Module);
+		NodePathType = new TypeReference("Godot", "NodePath", Module, Module);
 
-		NodePath_StringCtor = NodePathType.Methods.First(x => 
-			x.IsConstructor &&
-			x.Parameters.Count == 1 &&
-			x.Parameters[0].ParameterType.FullName == "System.String"
-		);
+		ParameterDefinition stringParameter = new(Module.TypeSystem.String);
+
+		StringName_StringCtor = new MethodReference(".ctor", Module.TypeSystem.Void, StringNameType)
+		{
+			HasThis = true
+		};
+		StringName_StringCtor.Parameters.Add(stringParameter);
+		
+		NodePath_StringCtor = new MethodReference(".ctor", Module.TypeSystem.Void, NodePathType)
+		{
+			HasThis = true
+		};
+		NodePath_StringCtor.Parameters.Add(stringParameter);
 	}
 }
