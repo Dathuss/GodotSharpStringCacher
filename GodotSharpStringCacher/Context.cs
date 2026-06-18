@@ -1,4 +1,4 @@
-﻿using Mono.Cecil;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Mono.Collections.Generic;
@@ -101,7 +101,7 @@ public class Context
 				continue;
 
 			// No need to patch if we're already in a static constructor
-			if (string.CompareOrdinal(typeMethod.Name, ".cctor") != 0)
+			if (typeMethod.Name.Equals(".cctor", StringComparison.Ordinal))
 				MatchAndPatch(typeMethod);
 		}
 	}
@@ -167,19 +167,19 @@ public class Context
 
 	static bool IsStringToStringNameImplicitOp(MethodReference method)
 	{
-		return string.CompareOrdinal(method.Name, "op_Implicit") == 0 &&
-			string.CompareOrdinal(method.DeclaringType.FullName, "Godot.StringName") == 0 &&
-			string.CompareOrdinal(method.ReturnType.FullName, "Godot.StringName") == 0 &&
-			method.Parameters.Count == 1 &&
-			string.CompareOrdinal(method.Parameters[0].ParameterType.FullName, "System.String") == 0;
+		return method.Name.Equals("op_Implicit", StringComparison.Ordinal)
+			&& method.DeclaringType.FullName.Equals("Godot.StringName", StringComparison.Ordinal)
+            && method.ReturnType.FullName.Equals("Godot.StringName", StringComparison.Ordinal)
+            && method.Parameters.Count == 1
+            && method.Parameters[0].ParameterType.FullName.Equals("System.String", StringComparison.Ordinal);
 	}
 
 	static bool IsStringToNodePathImplicitOp(MethodReference method)
 	{
-		return string.CompareOrdinal(method.Name, "op_Implicit") == 0 &&
-			string.CompareOrdinal(method.DeclaringType.FullName, "Godot.NodePath") == 0 &&
-			string.CompareOrdinal(method.ReturnType.FullName, "Godot.NodePath") == 0 &&
-			method.Parameters.Count == 1 &&
-			string.CompareOrdinal(method.Parameters[0].ParameterType.FullName, "System.String") == 0;
+		return method.Name.Equals("op_Implicit", StringComparison.Ordinal)
+            && method.DeclaringType.FullName.Equals("Godot.NodePath", StringComparison.Ordinal)
+            && method.ReturnType.FullName.Equals("Godot.NodePath", StringComparison.Ordinal)
+            && method.Parameters.Count == 1
+            && method.Parameters[0].ParameterType.FullName.Equals("System.String", StringComparison.Ordinal);
 	}
 }
