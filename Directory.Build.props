@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-	<PackageVersion>1.0.3-alpha</PackageVersion>
+	<PackageVersion>1.0.4-alpha</PackageVersion>
 
 	<Authors>Dathus</Authors>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
