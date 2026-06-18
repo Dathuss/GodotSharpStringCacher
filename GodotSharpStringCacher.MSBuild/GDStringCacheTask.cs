@@ -45,17 +45,17 @@ public class GDStringCacheTask : Task
 		}
 		catch (NoGodotSharpReferenceExeption ex)
 		{
-			Log.LogWarning($"{assemblyName}: {ex.Message}");
+			Log.LogWarning($"{assemblyName}: {ex}");
 		}
 		catch (IOException ex)
 		{
-			Log.LogError($"{assemblyName}: An IO error occured: {ex.Message}");
+			Log.LogError($"{assemblyName}: An IO error occured: {ex}");
 			return false;
 		}
 		catch (Exception ex)
 		{
 			if (ex.InnerException is IOException)
-				Log.LogError($"{assemblyName}: An IO error occured: {ex.InnerException.Message}: {ex.Message}");
+				Log.LogError($"{assemblyName}: An IO error occured: {ex}");
 			else
 				Log.LogError($"{assemblyName}: An unhandled exception occured: {ex}");
 			return false;
