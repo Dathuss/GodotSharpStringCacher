@@ -39,24 +39,26 @@ public class Context
 		FileName = inputFile;
 
 		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
-        using DefaultAssemblyResolver resolver = new();
-        resolver.AddSearchDirectory(directory);
+		using DefaultAssemblyResolver resolver = new();
+		resolver.AddSearchDirectory(directory);
 
-        using (Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters() { AssemblyResolver = resolver }))
-        {
-            if (LastRunDirectory == null || LastRunDirectory != directory)
-            {
-                // since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
+		string tempOutputFile;
 
-                Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
-                Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
-                Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
-                Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
-                Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
-            
-                LastRunDirectory = directory;
-            }
-            CacheTypesEmitter.Reset();
+		using (Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters() { AssemblyResolver = resolver }))
+		{
+			if (LastRunDirectory == null || LastRunDirectory != directory)
+			{
+				// Since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
+
+				Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
+				Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
+				Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
+				Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
+				Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
+			
+				LastRunDirectory = directory;
+			}
+			CacheTypesEmitter.Reset();
 
 			foreach (TypeDefinition moduleType in Module.Types)
 			{
@@ -72,18 +74,19 @@ public class Context
 			}
 			CacheTypesEmitter.EmitTypes();
 
+			NumberOfStringNamesWritten = CacheTypesEmitter.StringNamesToCache.Count;
+			NumberOfNodePathsWritten = CacheTypesEmitter.NodePathsToCache.Count;
+
 			// Mono.Cecil will not behave correctly if you write to a module to itself
 			// So we write it to memory first, then overwrite the file.
-			string temp = Path.GetTempFileName();
-			Module.Write(temp);
-			// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
-			// So we delete it manually.
-			File.Delete(outputFile);
-			File.Move(temp, outputFile);
+			tempOutputFile = Path.GetTempFileName();
+			Module.Write(tempOutputFile);
 		}
 
-		NumberOfStringNamesWritten = CacheTypesEmitter.StringNamesToCache.Count;
-		NumberOfNodePathsWritten = CacheTypesEmitter.NodePathsToCache.Count;
+		// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
+		// So we delete it manually.
+		File.Delete(outputFile);
+		File.Move(tempOutputFile, outputFile);
 	}
 
 	void PatchType(TypeDefinition type)
