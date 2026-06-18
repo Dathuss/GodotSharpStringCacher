@@ -55,18 +55,18 @@ static class Program
 		}
 		catch (NoGodotSharpReferenceExeption ex)
 		{
-			Console.Error.WriteLine(ex.Message);
+			Console.Error.WriteLine(ex);
 			Environment.Exit(1);
 		}
 		catch (IOException ex)
 		{
-			Console.Error.WriteLine($"An IO error occured: {ex.Message}");
+			Console.Error.WriteLine($"An IO error occured: {ex}");
 			Environment.Exit(1);
 		}
 		catch (Exception ex)
 		{
 			if (ex.InnerException is IOException)
-				Console.Error.WriteLine($"An IO error occured: {ex.InnerException.Message}: {ex.Message}");
+				Console.Error.WriteLine($"An IO error occured: {ex}");
 			else
 				Console.Error.WriteLine($"An unhandled exception occured: {ex}");
 			Environment.Exit(1);
