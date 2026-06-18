@@ -101,7 +101,7 @@ public class Context
 				continue;
 
 			// No need to patch if we're already in a static constructor
-			if (typeMethod.Name.Equals(".cctor", StringComparison.Ordinal))
+			if (typeMethod.Name != ".cctor")
 				MatchAndPatch(typeMethod);
 		}
 	}
@@ -167,19 +167,19 @@ public class Context
 
 	static bool IsStringToStringNameImplicitOp(MethodReference method)
 	{
-		return method.Name.Equals("op_Implicit", StringComparison.Ordinal)
-			&& method.DeclaringType.FullName.Equals("Godot.StringName", StringComparison.Ordinal)
-            && method.ReturnType.FullName.Equals("Godot.StringName", StringComparison.Ordinal)
-            && method.Parameters.Count == 1
-            && method.Parameters[0].ParameterType.FullName.Equals("System.String", StringComparison.Ordinal);
+		return method.Name == "op_Implicit"
+			&& method.DeclaringType.FullName == "Godot.StringName"
+			&& method.ReturnType.FullName == "Godot.StringName"
+			&& method.Parameters.Count == 1
+			&& method.Parameters[0].ParameterType.FullName == "System.String";
 	}
 
 	static bool IsStringToNodePathImplicitOp(MethodReference method)
 	{
-		return method.Name.Equals("op_Implicit", StringComparison.Ordinal)
-            && method.DeclaringType.FullName.Equals("Godot.NodePath", StringComparison.Ordinal)
-            && method.ReturnType.FullName.Equals("Godot.NodePath", StringComparison.Ordinal)
-            && method.Parameters.Count == 1
-            && method.Parameters[0].ParameterType.FullName.Equals("System.String", StringComparison.Ordinal);
+		return method.Name == "op_Implicit"
+			&& method.DeclaringType.FullName == "Godot.NodePath"
+			&& method.ReturnType.FullName == "Godot.NodePath"
+			&& method.Parameters.Count == 1
+			&& method.Parameters[0].ParameterType.FullName == "System.String";
 	}
 }
