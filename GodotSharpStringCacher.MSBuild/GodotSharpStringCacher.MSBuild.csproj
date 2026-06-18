@@ -23,7 +23,10 @@
 	<Content Include="$(MSBuildProjectName).targets" Pack="true" PackagePath="build" />
 	<Content Include="$(OutputPath)GodotSharpStringCacher.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
 
-	<Content Include="$(OutputPath)Mono.Cecil*.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.Mdb.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.Pdb.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.Rocks.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
   </ItemGroup>
 
 </Project>
