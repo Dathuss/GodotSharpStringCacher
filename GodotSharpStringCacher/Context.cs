@@ -38,24 +38,25 @@ public class Context
 	{
 		FileName = inputFile;
 
-		using (Module = ModuleDefinition.ReadModule(FileName))
-		{
-			string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
-			if (LastRunDirectory == null || LastRunDirectory != directory)
-			{
-				// since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
-				DefaultAssemblyResolver resolver = new();
-				resolver.AddSearchDirectory(directory);
+		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
+        using DefaultAssemblyResolver resolver = new();
+        resolver.AddSearchDirectory(directory);
 
-				Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
-				Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
-				Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
-				Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
-				Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
-			
-				LastRunDirectory = directory;
-			}
-			CacheTypesEmitter.Reset();
+        using (Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters() { AssemblyResolver = resolver }))
+        {
+            if (LastRunDirectory == null || LastRunDirectory != directory)
+            {
+                // since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
+
+                Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
+                Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
+                Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
+                Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
+                Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
+            
+                LastRunDirectory = directory;
+            }
+            CacheTypesEmitter.Reset();
 
 			foreach (TypeDefinition moduleType in Module.Types)
 			{
