@@ -2,7 +2,7 @@ using Mono.Cecil;
 
 namespace GodotSharpStringCacher;
 
-internal class GodotSharpDefs
+internal class GodotSharpDefs : IDisposable
 {
 	public readonly ModuleDefinition Module;
 
@@ -19,7 +19,12 @@ internal class GodotSharpDefs
 
 		return new GodotSharpDefs(result.MainModule);
 	}
-	
+
+	public static GodotSharpDefs FromModule(ModuleDefinition godotSharpModule)
+	{
+		return new(godotSharpModule);
+	}
+
 	private GodotSharpDefs(ModuleDefinition godotSharpModule)
 	{
 		Module = godotSharpModule;
@@ -40,5 +45,10 @@ internal class GodotSharpDefs
 			HasThis = true
 		};
 		NodePath_StringCtor.Parameters.Add(stringParameter);
+	}
+
+	public void Dispose()
+	{
+		Module.Dispose();
 	}
 }
