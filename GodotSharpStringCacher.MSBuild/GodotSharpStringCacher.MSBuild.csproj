@@ -12,21 +12,26 @@
 	<Description>
 		Automatically cache Godot Mono/C# StringName and NodePath without changing your code.
 	</Description>
+	<BuildOutputTargetFolder>tasks</BuildOutputTargetFolder>
+    <!-- NuGet does validation that libraries in a package are exposed as dependencies, but we _explicitly_ do not want that behavior for MSBuild tasks. They are isolated by design. Therefore we ignore this specific warning. -->
+    <NoWarn>NU5100</NoWarn>
+    <!-- When users install the package, adds PrivateAssets="true" by default -->
+    <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
-
+  
   <ItemGroup>
 	<PackageReference Include="Microsoft.Build.Utilities.Core" Version="18.7.1" PrivateAssets="all" ExcludeAssets="Runtime" />
-	<ProjectReference Include="..\GodotSharpStringCacher\GodotSharpStringCacher.csproj" IncludeAssets="all" />
+	<ProjectReference Include="..\GodotSharpStringCacher\GodotSharpStringCacher.csproj" />
   </ItemGroup>
 
   <ItemGroup>
 	<Content Include="$(MSBuildProjectName).targets" Pack="true" PackagePath="build" />
-	<Content Include="$(OutputPath)GodotSharpStringCacher.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+	<Content Include="$(OutputPath)GodotSharpStringCacher.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />
 
-	<Content Include="$(OutputPath)Mono.Cecil.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-	<Content Include="$(OutputPath)Mono.Cecil.Mdb.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-	<Content Include="$(OutputPath)Mono.Cecil.Pdb.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
-	<Content Include="$(OutputPath)Mono.Cecil.Rocks.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.Mdb.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.Pdb.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />
+	<Content Include="$(OutputPath)Mono.Cecil.Rocks.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />
   </ItemGroup>
 
 </Project>

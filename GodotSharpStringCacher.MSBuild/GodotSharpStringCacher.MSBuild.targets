@@ -1,6 +1,6 @@
 <Project>
   <!-- <UsingTask AssemblyFile="$(MSBuildThisFileDirectory)bin/Debug/netstandard2.0/$(MSBuildThisFileName).dll" TaskName="GodotSharpStringCacher.MSBuild.GDStringCacheTask" /> -->
-  <UsingTask AssemblyFile="$(MSBuildThisFileDirectory)../lib/netstandard2.0/$(MSBuildThisFileName).dll" TaskName="GodotSharpStringCacher.MSBuild.GDStringCacheTask" />
+  <UsingTask AssemblyFile="$(MSBuildThisFileDirectory)../tasks/netstandard2.0/$(MSBuildThisFileName).dll" TaskName="GodotSharpStringCacher.MSBuild.GDStringCacheTask" />
 
   <PropertyGroup>
     <!-- The Target this task is run after can be customized (eg if you use an obfuscator) -->
