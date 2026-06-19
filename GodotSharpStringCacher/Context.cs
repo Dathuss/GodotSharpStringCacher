@@ -5,7 +5,7 @@ using Mono.Collections.Generic;
 
 namespace GodotSharpStringCacher;
 
-public class Context
+public class Context : IDisposable
 {
 	public Config Config { get; set; }
 
@@ -13,9 +13,9 @@ public class Context
 
 	internal string FileName { get; private set; } = null!;
 
-	internal string? LastRunDirectory { get; private set; } = null;
+	internal GodotSharpDefs? Defs { get; private set; } = null;
 
-	internal GodotSharpDefs Defs { get; private set; } = null!;
+	internal string? GodotSharpDirectory { get; private set; } = null;
 
 	internal TypeReference Imported_StringNameType { get; private set; } = null!;
 	internal MethodReference Imported_StringName_StringCtor { get; private set; } = null!; 
@@ -40,24 +40,20 @@ public class Context
 
 		string directory = Path.GetDirectoryName(FileName) ?? throw new ArgumentException("Could not resolve directory name from module path");
 		using DefaultAssemblyResolver resolver = new();
+		if (GodotSharpDirectory != null)
+			resolver.AddSearchDirectory(GodotSharpDirectory);
 		resolver.AddSearchDirectory(directory);
 
 		string tempOutputFile;
 
 		using (Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters() { AssemblyResolver = resolver }))
 		{
-			if (LastRunDirectory == null || LastRunDirectory != directory)
+			if (Defs == null)
 			{
-				// Since we are in a different directory, the GodotSharp assembly may not be the same, so we reload everything.
-
 				Defs = GodotSharpDefs.FromReferencingModule(Module, resolver);
-				Imported_StringNameType = Module.ImportReference(Defs.StringNameType);
-				Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
-				Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
-				Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
-			
-				LastRunDirectory = directory;
+				GodotSharpDirectory = Path.GetDirectoryName(Defs.Module.FileName);
 			}
+			ImportGodotSharpReferences();
 			CacheTypesEmitter.Reset();
 
 			foreach (TypeDefinition moduleType in Module.Types)
@@ -87,6 +83,35 @@ public class Context
 		// So we delete it manually.
 		File.Delete(outputFile);
 		File.Move(tempOutputFile, outputFile);
+	}
+
+	/// <summary>
+	/// Manually open the GodotSharp assembly.
+	/// </summary>
+	public void OpenGodotSharp(string assemblyPath)
+	{
+		CloseGodotSharp();
+		Defs = GodotSharpDefs.FromModule(ModuleDefinition.ReadModule(assemblyPath));
+		GodotSharpDirectory = Path.GetDirectoryName(assemblyPath);
+	}
+
+	/// <summary>
+	/// Closes the GodotSharp assembly, which allows to load a different GodotSharp assembly
+	/// with the same Context.
+	/// </summary>
+	public void CloseGodotSharp()
+	{
+		Defs?.Dispose();
+		Defs = null;
+		GodotSharpDirectory = null;
+	}
+
+	void ImportGodotSharpReferences()
+	{
+		Imported_StringNameType = Module.ImportReference(Defs!.StringNameType);
+		Imported_StringName_StringCtor = Module.ImportReference(Defs.StringName_StringCtor);
+		Imported_NodePathType = Module.ImportReference(Defs.NodePathType);
+		Imported_NodePath_StringCtor = Module.ImportReference(Defs.NodePath_StringCtor);
 	}
 
 	void PatchType(TypeDefinition type)
@@ -177,5 +202,10 @@ public class Context
 			&& method.ReturnType.FullName == "Godot.NodePath"
 			&& method.Parameters.Count == 1
 			&& method.Parameters[0].ParameterType.FullName == "System.String";
+	}
+
+	public void Dispose()
+	{
+		Defs?.Dispose();
 	}
 }

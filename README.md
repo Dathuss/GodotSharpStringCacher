@@ -16,7 +16,7 @@ There are different proposals to circumvent this issue, here is mine.
 
 Include the package in your csproj file with
 ```xml
-<PackageReference Include="GodotSharpStringCacher.MSBuild" />
+<PackageReference Include="GodotSharpStringCacher.MSBuild" PrivateAssets="all" />
 ```
 
 That's it ! The main assembly is now automatically patched.  

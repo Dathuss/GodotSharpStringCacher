@@ -34,12 +34,12 @@ public class GDStringCacheTask : Task
 	[Required]
 	public bool UseLongNamesByDefault { get; set; }
 
-	bool CacheOne(Context ctx, string path, string assemblyName)
+	bool CacheOne(Context ctx, string inputPath, string outputPath, string assemblyName)
 	{
 		Log.LogMessage($"{assemblyName}: Caching Godot strings...");
 		try
 		{
-			ctx.RunAndSave(path, path);
+			ctx.RunAndSave(inputPath, outputPath);
 			Log.LogMessage($"{assemblyName}: StringNames cached: {ctx.NumberOfStringNamesWritten}");
 			Log.LogMessage($"{assemblyName}: NodePaths cached: {ctx.NumberOfNodePathsWritten}");
 		}
@@ -67,20 +67,37 @@ public class GDStringCacheTask : Task
 	{
 		SimpleLogger logger = new(this);
 		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, logger);
-		Context ctx = new(defaultConfig);
-
-		if (CacheMainAssemblyStrings)
-		{
-			if (!CacheOne(ctx, $"{OutputPath}{AssemblyName}.dll", AssemblyName))
-				return false;
-		}
+		using Context ctx = new(defaultConfig);
 
 		Dictionary<string, ITaskItem> packagesToPatch = PackageReference.Where(x => GetBoolMetadata(x, "CacheStrings")).ToDictionary(x => x.ItemSpec);
 		Dictionary<string, ITaskItem> assemblyNamesToPatch = CacheStrings.ToDictionary(x => x.ItemSpec);
 
+		bool hasFoundGodotSharp = false;
+
 		foreach (ITaskItem reference in ReferencePath)
 		{
 			string fileName = reference.GetMetadata("FileName");
+			if (fileName == "GodotSharp")
+			{
+				string fullPath = reference.GetMetadata("FullPath");
+				ctx.OpenGodotSharp(fullPath);
+				hasFoundGodotSharp = true;
+				break;
+			}
+		}
+
+		if (!hasFoundGodotSharp)
+		{
+			Log.LogError("No GodotSharp reference found in the project. Make sure you reference it or that you use Godot.NET.Sdk.");
+			return false;
+		}
+
+		foreach (ITaskItem reference in ReferencePath)
+		{
+			string fileName = reference.GetMetadata("FileName");
+			if (fileName == "GodotSharp")
+				continue;
+
 			ITaskItem assemblyTask;
 
 			// Checks for <ProjectReference> and <Reference>
@@ -94,10 +111,18 @@ public class GDStringCacheTask : Task
 			string fullPath = reference.GetMetadata("FullPath");
 
 			ctx.Config = ParseConfig(assemblyTask, defaultConfig);
-			if (!CacheOne(ctx, fullPath, fileName))
+			string outputFile = $"{OutputPath}{fileName}{reference.GetMetadata("Extension")}";
+			if (!CacheOne(ctx, fullPath, outputFile, fileName))
 			{
 				return false;
 			}
+		}
+	
+		if (CacheMainAssemblyStrings)
+		{
+			string path = $"{OutputPath}{AssemblyName}.dll";
+			if (!CacheOne(ctx, path, path, AssemblyName))
+				return false;
 		}
 
 		return true;
