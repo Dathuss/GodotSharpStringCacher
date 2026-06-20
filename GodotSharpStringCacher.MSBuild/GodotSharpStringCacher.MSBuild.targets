@@ -4,7 +4,7 @@
     <!-- <GDStringAssembly>$(MSBuildThisFileDirectory)bin/Debug/netstandard2.0/$(MSBuildThisFileName).dll</GDStringAssembly> -->
   </PropertyGroup>
 
-  <UsingTask AssemblyFile="$(GDStringAssembly)" TaskName="GodotSharpStringCacher.MSBuild.GDStringCacheTask" />
+  <UsingTask AssemblyFile="$(GDStringAssembly)" TaskName="GodotSharpStringCacher.MSBuild.GDStringMainAssemblyCacheTask" />
   <UsingTask AssemblyFile="$(GDStringAssembly)" TaskName="GodotSharpStringCacher.MSBuild.GDStringDependencyCacheTask" />
 
   <PropertyGroup>
@@ -17,7 +17,7 @@
     <GDStringUseLongNames Condition="'$(GDStringUseLongNames)' == ''">false</GDStringUseLongNames>
   </PropertyGroup>
 
-  <Target Name="CacheDependenciesString" AfterTargets="ResolveAssemblyReferences" >
+  <Target Name="CacheDependenciesStrings" AfterTargets="ResolveAssemblyReferences" >
     <GDStringDependencyCacheTask
       IntermediateOutputPath="$(IntermediateOutputPath)" 
       ReferencePath="@(ReferencePath)"
@@ -44,7 +44,7 @@
   </Target>
 
   <Target Name="CacheMainAssemblyStrings" BeforeTargets="CopyFilesToOutputDirectory" Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
-    <GDStringCacheTask
+    <GDStringMainAssemblyCacheTask
       AssemblyName="$(AssemblyName)"
       IntermediateAssembly="@(IntermediateAssembly)"
       ReferencePath="@(ReferencePath)"
@@ -55,7 +55,7 @@
     >
       <Output TaskParameter="CachedIntermediateAssembly" ItemName="_CachedIntermediateAssembly" />
 
-    </GDStringCacheTask>
+    </GDStringMainAssemblyCacheTask>
 
     <ItemGroup>
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />

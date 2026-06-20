@@ -8,7 +8,7 @@ using Microsoft.Build.Utilities;
 
 namespace GodotSharpStringCacher.MSBuild;
 
-public class GDStringCacheTask : Task
+public class GDStringMainAssemblyCacheTask : Task
 {
 	[Required]
 	public string AssemblyName { get; set; }
