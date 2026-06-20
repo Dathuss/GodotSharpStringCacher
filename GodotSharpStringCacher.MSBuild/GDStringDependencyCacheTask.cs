@@ -86,7 +86,7 @@ public class GDStringDependencyCacheTask : Task
 					if (string.IsNullOrEmpty(godotSharp))
 						return false;
 
-					ctx = new(defaultConfig);
+					ctx = new Context(defaultConfig);
 					ctx.OpenGodotSharp(godotSharp);
 				}
 
