@@ -11,7 +11,7 @@ using Microsoft.Build.Utilities;
 
 namespace GodotSharpStringCacher.MSBuild;
 
-static class Common
+internal static class Common
 {
 	public static string GetGodotSharpFromReferencePath(ITaskItem[] referencePath, TaskLoggingHelper logger)
 	{
@@ -71,29 +71,33 @@ static class Common
 	/// </summary>
 	public static string ComputeHash(string inputFile, Config config)
 	{
-		SHA256 hash = SHA256.Create();
+		using SHA256 hash = SHA256.Create();
 
-        void Hash(byte[] buffer)
-        {
-            hash.TransformBlock(buffer, 0, buffer.Length, buffer, 0);
-        }
-        void HashString(string str) => Hash(Encoding.UTF8.GetBytes(str));
-        void HashBool(bool value) => Hash(BitConverter.GetBytes(value));
-        void HashLong(long value) => Hash(BitConverter.GetBytes(value));
+		void Hash(byte[] buffer, bool isFinalBlock = false)
+		{
+			if (isFinalBlock)
+			{
+				hash.TransformFinalBlock(buffer, 0, buffer.Length);
+			}
+			else
+			{
+				hash.TransformBlock(buffer, 0, buffer.Length, buffer, 0);
+			}
+		}
+		void HashString(string str, bool isFinalBlock = false) => Hash(Encoding.UTF8.GetBytes(str), isFinalBlock);
+		void HashBool(bool value, bool isFinalBlock = false) => Hash(BitConverter.GetBytes(value), isFinalBlock);
+		void HashLong(long value, bool isFinalBlock = false) => Hash(BitConverter.GetBytes(value), isFinalBlock);
 
-		DateTime fileTimestamp = File.GetLastWriteTime(inputFile);
-
-        HashString(typeof(GDStringDependencyCacheTask).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion);
-        HashString(typeof(Context).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion);
+		HashString(typeof(GDStringDependencyCacheTask).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion);
+		HashString(typeof(Context).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion);
 
 		HashBool(config.UseLongNames);
 		HashBool(config.WarnOnNonConstantImplicitOperator);
 
-		HashLong(fileTimestamp.ToBinary());
+		HashLong(File.GetLastWriteTimeUtc(inputFile).ToBinary(),
+			isFinalBlock: true);
 
-		hash.TransformFinalBlock([0], 0, 1);
-
-		return string.Join("", hash.Hash.Select(x => x.ToString("x2", CultureInfo.InvariantCulture)));
+		return string.Concat(hash.Hash.Select(x => x.ToString("x2", CultureInfo.InvariantCulture)));
 	}
 
 	public static bool HasMetadata(this ITaskItem taskItem, string name) => ((ICollection<string>)taskItem.MetadataNames).Contains(name);
