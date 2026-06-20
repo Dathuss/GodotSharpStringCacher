@@ -50,14 +50,6 @@ public class GDStringDependencyCacheTask : Task
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
 
-		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
-		if (string.IsNullOrEmpty(godotSharp))
-			return false;
-		
-		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, new Common.SimpleLogger(this));
-		using Context ctx = new(defaultConfig);
-		ctx.OpenGodotSharp(godotSharp);
-
 		Dictionary<string, ITaskItem> packagesToPatch = PackageReference.Where(x => x.GetBoolMetadata("CacheStrings")).ToDictionary(x => x.ItemSpec);
 		Dictionary<string, ITaskItem> assemblyNamesToPatch = CacheStrings.ToDictionary(x => x.ItemSpec);
 
@@ -67,56 +59,76 @@ public class GDStringDependencyCacheTask : Task
 		List<ITaskItem> removedReferenceCopyLocalPaths = [];
 		List<ITaskItem> addedReferenceCopyLocalPaths = [];
 
-		foreach (ITaskItem reference in ReferencePath)
+		Context ctx = null;
+
+		try
 		{
-			string fileName = reference.GetMetadata("FileName");
-			if (fileName == "GodotSharp")
-				continue;
-
-			ITaskItem assemblyTaskItem;
-
-			// Checks for <ProjectReference> and <Reference>
-			if (reference.GetBoolMetadata("CacheStrings")) { assemblyTaskItem = reference; }
-			// Checks for <PackageReference>
-			else if (reference.TryGetMetadata("NuGetPackageId", out string nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId, out assemblyTaskItem)) { }
-			// Checks for <CacheStrings>
-			else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
-			else continue;
-
-			ctx.Config = ParseConfig(assemblyTaskItem, defaultConfig);
-
-			string fullPath = reference.GetMetadata("FullPath");
-			string newHash = Common.ComputeHash(fullPath, ctx.Config);
-
-			string outputFile = Path.Combine(intermediateDir, Path.GetFileName(fullPath));
-			string hashFile = outputFile + ".hash.cache";
-
-			// Replace ReferencePath and ReferenceCopyLocalPaths to the cached path
-            removedReferencePath.Add(reference);
-
-            TaskItem cachedReference = new(outputFile);
-            reference.CopyMetadataTo(cachedReference);
-            addedReferencePath.Add(cachedReference);
-
-			ITaskItem referenceOfReferenceCopyLocalPaths = ReferenceCopyLocalPaths.First(x => x.GetMetadata("FileName") == fileName && x.GetMetadata("Extension") == ".dll");
-			removedReferenceCopyLocalPaths.Add(referenceOfReferenceCopyLocalPaths);
-
-			TaskItem cachedReferenceForCopy = new(outputFile);
-			referenceOfReferenceCopyLocalPaths.CopyMetadataTo(cachedReferenceForCopy);
-			addedReferenceCopyLocalPaths.Add(cachedReferenceForCopy);
-
-			if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
+			foreach (ITaskItem reference in ReferencePath)
 			{
-				Log.LogMessage($"Assembly {fileName} up to date");
-				continue;
-			}
+				string fileName = reference.GetMetadata("FileName");
+				if (fileName == "GodotSharp")
+					continue;
 
-			if (!Common.DoCache(ctx, fullPath, outputFile, fileName, Log))
-			{
-				return false;
-			}
+				ITaskItem assemblyTaskItem;
 
-			File.WriteAllText(hashFile, newHash);
+				// Checks for <ProjectReference> and <Reference>
+				if (reference.GetBoolMetadata("CacheStrings")) { assemblyTaskItem = reference; }
+				// Checks for <PackageReference>
+				else if (reference.TryGetMetadata("NuGetPackageId", out string nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId, out assemblyTaskItem)) { }
+				// Checks for <CacheStrings>
+				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
+				else continue;
+
+				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, new Common.SimpleLogger(this));
+				if (ctx == null)
+				{
+					string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
+					if (string.IsNullOrEmpty(godotSharp))
+						return false;
+
+					ctx = new(defaultConfig);
+					ctx.OpenGodotSharp(godotSharp);
+				}
+
+				ctx.Config = ParseConfig(assemblyTaskItem, defaultConfig);
+
+				string fullPath = reference.GetMetadata("FullPath");
+				string newHash = Common.ComputeHash(fullPath, ctx.Config);
+
+				string outputFile = Path.Combine(intermediateDir, Path.GetFileName(fullPath));
+				string hashFile = outputFile + ".hash.cache";
+
+				// Replace ReferencePath and ReferenceCopyLocalPaths to the cached path
+				removedReferencePath.Add(reference);
+
+				TaskItem cachedReference = new(outputFile);
+				reference.CopyMetadataTo(cachedReference);
+				addedReferencePath.Add(cachedReference);
+
+				ITaskItem referenceOfReferenceCopyLocalPaths = ReferenceCopyLocalPaths.First(x => x.GetMetadata("FileName") == fileName && x.GetMetadata("Extension") == ".dll");
+				removedReferenceCopyLocalPaths.Add(referenceOfReferenceCopyLocalPaths);
+
+				TaskItem cachedReferenceForCopy = new(outputFile);
+				referenceOfReferenceCopyLocalPaths.CopyMetadataTo(cachedReferenceForCopy);
+				addedReferenceCopyLocalPaths.Add(cachedReferenceForCopy);
+
+				if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
+				{
+					Log.LogMessage($"Assembly {fileName} up to date");
+					continue;
+				}
+
+				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, Log))
+				{
+					return false;
+				}
+
+				File.WriteAllText(hashFile, newHash);
+			}
+		}
+		finally
+		{
+			ctx?.Dispose();
 		}
 
 		RemovedReferencePath = removedReferencePath.ToArray();
