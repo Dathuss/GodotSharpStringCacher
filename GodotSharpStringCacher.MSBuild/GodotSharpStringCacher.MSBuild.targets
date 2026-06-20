@@ -1,6 +1,11 @@
 <Project>
-  <!-- <UsingTask AssemblyFile="$(MSBuildThisFileDirectory)bin/Debug/netstandard2.0/$(MSBuildThisFileName).dll" TaskName="GodotSharpStringCacher.MSBuild.GDStringCacheTask" /> -->
-  <UsingTask AssemblyFile="$(MSBuildThisFileDirectory)../tasks/netstandard2.0/$(MSBuildThisFileName).dll" TaskName="GodotSharpStringCacher.MSBuild.GDStringCacheTask" />
+  <PropertyGroup>
+    <GDStringAssembly>$(MSBuildThisFileDirectory)../tasks/netstandard2.0/$(MSBuildThisFileName).dll</GDStringAssembly>
+    <!-- <GDStringAssembly>$(MSBuildThisFileDirectory)bin/Debug/netstandard2.0/$(MSBuildThisFileName).dll</GDStringAssembly> -->
+  </PropertyGroup>
+
+  <UsingTask AssemblyFile="$(GDStringAssembly)" TaskName="GodotSharpStringCacher.MSBuild.GDStringCacheTask" />
+  <UsingTask AssemblyFile="$(GDStringAssembly)" TaskName="GodotSharpStringCacher.MSBuild.GDStringDependencyCacheTask" />
 
   <PropertyGroup>
     <!-- The Target this task is run after can be customized (eg if you use an obfuscator) -->
@@ -14,15 +19,40 @@
 	<GDStringUseLongNames Condition="'$(GDStringUseLongNames)' == ''">false</GDStringUseLongNames>
   </PropertyGroup>
 
+  <Target Name="CacheDependenciesString" AfterTargets="ResolveAssemblyReferences" >
+    <GDStringDependencyCacheTask
+		IntermediateOutputPath="$(IntermediateOutputPath)" 
+		ReferencePath="@(ReferencePath)"
+		ReferenceCopyLocalPaths="@(ReferenceCopyLocalPaths)"
+		PackageReference="@(PackageReference)"
+
+		CacheStrings="@(CacheStrings)"
+		WarnOnNonConstantImplicitOperator="$(GDStringWarnOnNonConstantImplicitOperator)"
+		UseLongNamesByDefault="$(GDStringUseLongNames)"
+	>
+	  <Output TaskParameter="RemovedReferencePath" ItemName="_RemovedReferencePath" />
+	  <Output TaskParameter="AddedReferencePath" ItemName="_AddedReferencePath" />
+	  <Output TaskParameter="RemovedReferenceCopyLocalPaths" ItemName="_RemovedReferenceCopyLocalPaths" />
+	  <Output TaskParameter="AddedReferenceCopyLocalPaths" ItemName="_AddedReferenceCopyLocalPaths" />
+	</GDStringDependencyCacheTask>
+
+	<ItemGroup>
+		<!-- Replace the assembly paths with our cached assemblies' paths -->
+		<ReferencePath Remove="@(_RemovedReferencePath)" />
+		<ReferencePath Include="@(_AddedReferencePath)" />
+		<ReferenceCopyLocalPaths Remove="@(_RemovedReferenceCopyLocalPaths)" />
+		<ReferenceCopyLocalPaths Include="@(_AddedReferenceCopyLocalPaths)" />
+	</ItemGroup>
+  </Target>
+
   <Target Name="CacheMainAssemblyStrings" AfterTargets="$(GDStringCacheAfterTargets)">
     <GDStringCacheTask
 		OutputPath="$(OutputPath)"
 		AssemblyName="$(AssemblyName)"
 		ReferencePath="@(ReferencePath)"
-		PackageReference="@(PackageReference)"
+		IntermediateOutputPath="$(IntermediateOutputPath)"
 		
 	    CacheMainAssemblyStrings="$(GDStringCacheMainAssemblyStrings)"
-		CacheStrings="@(CacheStrings)"
 		WarnOnNonConstantImplicitOperator="$(GDStringWarnOnNonConstantImplicitOperator)"
 		UseLongNamesByDefault="$(GDStringUseLongNames)" />
   </Target>
