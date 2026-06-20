@@ -8,8 +8,6 @@
   <UsingTask AssemblyFile="$(GDStringAssembly)" TaskName="GodotSharpStringCacher.MSBuild.GDStringDependencyCacheTask" />
 
   <PropertyGroup>
-    <!-- The Target this task is run after can be customized (eg if you use an obfuscator) -->
-    <GDStringCacheAfterTargets Condition="'$(GDStringCacheAfterTargets)' == ''">Build</GDStringCacheAfterTargets>
 	<!-- The main assembly is cached by default. If, for some reason, you don't want to, you can -->
 	<GDStringCacheMainAssemblyStrings Condition="'$(GDStringCacheMainAssemblyStrings)' == ''">true</GDStringCacheMainAssemblyStrings>
 	<!-- Warn user if implicit string operator is used on non-constant -->
@@ -45,16 +43,24 @@
 	</ItemGroup>
   </Target>
 
-  <Target Name="CacheMainAssemblyStrings" AfterTargets="$(GDStringCacheAfterTargets)">
+  <Target Name="CacheMainAssemblyStrings" BeforeTargets="CopyFilesToOutputDirectory" Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
     <GDStringCacheTask
-		OutputPath="$(OutputPath)"
 		AssemblyName="$(AssemblyName)"
+		IntermediateAssembly="@(IntermediateAssembly)"
 		ReferencePath="@(ReferencePath)"
 		IntermediateOutputPath="$(IntermediateOutputPath)"
 		
-	    CacheMainAssemblyStrings="$(GDStringCacheMainAssemblyStrings)"
 		WarnOnNonConstantImplicitOperator="$(GDStringWarnOnNonConstantImplicitOperator)"
-		UseLongNamesByDefault="$(GDStringUseLongNames)" />
+		UseLongNamesByDefault="$(GDStringUseLongNames)"
+	>
+	  <Output TaskParameter="CachedIntermediateAssembly" ItemName="_CachedIntermediateAssembly" />
+
+	</GDStringCacheTask>
+
+	<ItemGroup>
+	  <IntermediateAssembly Remove="@(IntermediateAssembly)" />
+	  <IntermediateAssembly Include="@(_CachedIntermediateAssembly)" />
+	</ItemGroup>
   </Target>
 
   <ItemDefinitionGroup>

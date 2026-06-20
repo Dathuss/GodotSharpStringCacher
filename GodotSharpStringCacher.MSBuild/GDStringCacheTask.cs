@@ -14,7 +14,7 @@ public class GDStringCacheTask : Task
 	public string AssemblyName { get; set; }
 
 	[Required]
-	public string OutputPath { get; set; }
+	public ITaskItem IntermediateAssembly { get; set; }
 
 	[Required]
 	public ITaskItem[] ReferencePath { get; set; }
@@ -24,33 +24,48 @@ public class GDStringCacheTask : Task
 
 
 	[Required]
-	public bool CacheMainAssemblyStrings { get; set; }
-
-	[Required]
 	public bool WarnOnNonConstantImplicitOperator { get; set; }
 
 	[Required]
 	public bool UseLongNamesByDefault { get; set; }
 
+
+	[Output]
+	public ITaskItem CachedIntermediateAssembly { get; set; }
+
 	public override bool Execute()
 	{
-		if (CacheMainAssemblyStrings)
+		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
+		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, new Common.SimpleLogger(this));
+
+		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
+		if (string.IsNullOrEmpty(godotSharp))
+			return false;
+
+		string newHash = Common.ComputeHash(IntermediateAssembly.ItemSpec, defaultConfig);
+
+		string outputFile = Path.Combine(intermediateDir, Path.GetFileName(IntermediateAssembly.ItemSpec));
+		string hashFile = outputFile + ".hash.cache";
+
+		TaskItem cachedIntermediateAssemblyTaskItem = new(outputFile);
+		IntermediateAssembly.CopyMetadataTo(cachedIntermediateAssemblyTaskItem);
+		CachedIntermediateAssembly = cachedIntermediateAssemblyTaskItem;
+
+		if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
-			Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, new Common.SimpleLogger(this));
-			using Context ctx = new(defaultConfig);
-
-			string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
-			if (string.IsNullOrEmpty(godotSharp))
-				return false;
-
-			ctx.OpenGodotSharp(godotSharp);
-			string inputFile = $"{IntermediateOutputPath}{AssemblyName}.dll";
-			string outputFile = $"{OutputPath}{AssemblyName}.dll";
-			if (!Common.DoCache(ctx, inputFile, outputFile, AssemblyName, Log))
-			{
-				return false;
-			}
+			Log.LogMessage($"Main assembly up to date");
+			return true;
 		}
+
+		using Context ctx = new(defaultConfig);
+
+		ctx.OpenGodotSharp(godotSharp);
+		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, Log))
+		{
+			return false;
+		}
+
+		File.WriteAllText(hashFile, newHash);
 
 		return true;
 	}
