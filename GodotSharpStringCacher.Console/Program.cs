@@ -50,7 +50,7 @@ static class Program
 			Params? parameters = ParseParams(args);
 			if (parameters is null)
 				return;
-			Context ctx = new(parameters.Config);
+			using Context ctx = new(parameters.Config);
 			ctx.RunAndSave(parameters.InFile, parameters.OutFile);
 		}
 		catch (NoGodotSharpReferenceExeption ex)
