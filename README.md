@@ -2,15 +2,17 @@
 
 [![NuGet](https://img.shields.io/nuget/v/GodotSharpStringCacher.MSBuild.svg)](https://www.nuget.org/packages/GodotSharpStringCacher.MSBuild)
 
-# What ?
+# What?
 
-Godot uses its own string types for a lot of features in the engine: `StringName` and `NodePath`. They each have their advantage which make a speed difference for the engine.  
-However in C# they are often implicited declared and can have performance impact.  
-For example, when writing something like `Input.IsActionJustPressed("my_input")`, the constructor to StringName is called on `"my_input"` without you noticing. 
-This results in the GC allocation of an object that will live for only one method.
-Worse, the implementation of these constructors does potentially expensive calculations (for StringName, a hash is computed, which is then searched in a linked list. For NodePath, the string is deconstructed in its individual nodes, and a list is allocated to cache the results)
+Godot uses its own string types meant for specific uses: `StringName` and `NodePath`. `StringName` is optimized for fast equality comparisons and hash lookups, and `NodePath` is optimized for storing scene tree paths.
 
-There are different proposals to circumvent this issue, here is mine.
+However, in C#, they are often implicitly converted from `string`, which results in performance penalties.
+
+For example, when writing `Input.IsActionPressed("my_input")`, the string `"my_input"` is implicitly converted from `string` to `StringName`. This allocates a new `StringName`, which contributes to performance spikes from garbage collection.
+
+To make it worse, these implicit conversions do expensive calculations. For `StringName`, a hash is computed, which is then searched in a linked list. For `NodePath`, the path is deconstructed to its individual parts, and a list is allocated to cache the results.
+
+There are several proposals to circumvent this issue, but this one is "plug 'n' play" and has no extra runtime performance penalties.
 
 # Integrating
 
