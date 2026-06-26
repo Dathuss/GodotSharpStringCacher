@@ -45,7 +45,7 @@ You can browse the resulting assembly and see the results for yourself.
 
 ## Warning On Implicit Operator With Non Constant
 
-You are encouraged to use the `new` syntax when creating a non-constant StringName/NodePath at run-time. For example
+You are encouraged from using the `new` syntax when creating a non-constant `StringName`/`NodePath` at run-time. For example
 ```csharp
 // don't
 StringName myStr = networkPacket.StringVariable;
@@ -61,21 +61,21 @@ To disable this warning (which is not recommended), either use `WarnOnNonConstan
 
 ## Long Names
 
-By default, the variables created from your constant strings in the assembly have a short numeric name. However, in niche cases, like statically reversing your own project, you may want these variables to have names that resemble their original value. For example, `"my_input"` would create a variable called `_my_input`.
-If you want that in a specific assembly, you can add `LongNames=true`. If you want that globally, add  
+By default, the fields created from your constant strings in the assembly have a short numeric name. However, in niche cases, like statically reversing your own project, you may want these fields to have names that resemble their original value. For example, `"my_input"` would create a field called `_my_input`.
+To enable this in a specific assembly, you can add `LongNames=true`. To enable this globally, add
 ```xml
 <GDStringUseLongNames>true</GDStringUseLongNames>
 ```
 
 # How It Works
 
-It executes after your project compiles and directly edits the resulting assembly. It uses [Mono.Cecil](https://www.nuget.org/packages/Mono.Cecil), a library for assembly exploring and editing.  
-It looks for calls to these implicit conversion operators, then if the string is a constant, adds its value as a StringName/NodePath to a static class, then replaces the call with the load to this value.
+It executes after your project compiles and directly modifies the resulting assembly using [Mono.Cecil](https://www.nuget.org/packages/Mono.Cecil), a library for assembly exploring and editing.  
+It looks for implicit conversions, and if the string is a constant, it adds its value as a `StringName`/`NodePath` field to a static class, then replaces the conversion with a direct read to this field.
 
 # Bugs and contributing
 
-The current release should be stable. If you find a bug please please **PLEASE** fill an issue.
+The current release should be stable. If you find a bug please please **PLEASE** raise an issue.
 
-Feel free to contribute too !
+Feel free to contribute too!
 
-If you find this project useful, drop a :star: too ! Thank you :>
+If you find this project useful, drop a :star: too! Thank you :>
