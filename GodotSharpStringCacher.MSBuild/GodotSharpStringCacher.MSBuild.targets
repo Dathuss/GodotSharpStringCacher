@@ -63,6 +63,10 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="CleanCachedStringAssemblies" AfterTargets="CoreClean">
+    <RemoveDir Condition="'$(IntermediateOutputPath)' != ''" Directories="$(IntermediateOutputPath)string-cache" />
+  </Target>
+
   <ItemDefinitionGroup>
     <CacheStrings>
       <LongNames>$(GDStringUseLongNames)</LongNames>
