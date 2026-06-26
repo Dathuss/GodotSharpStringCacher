@@ -34,6 +34,24 @@ If you want it to affect other packages, use
 </ItemGroup>
 ```
 
+`GodotSharpStringCacher` is also available as a library. Integrate it into other builds like this:
+
+```xml
+<PackageReference Include="GodotSharpStringCacher" />
+```
+Then:
+```csharp
+using GodotSharpStringCacher;
+
+...
+
+using var ctx = new Context(config: new Config(...));
+// (optional) open GodotSharp manually (otherwise it will be loaded if present in the same directory as the patching dll)
+ctx.OpenGodotSharp("/foo/GodotSharp.dll");
+ctx.RunAndSave("input.dll", "output.dll");
+ctx.RunAndSave("input2.dll", "output2.dll");
+```
+
 # Quick Testing
 
 If you want to test without integrating it, compile `GodotSharpStringCacher.Console`. The syntax is:
