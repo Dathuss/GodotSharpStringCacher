@@ -46,7 +46,7 @@ public class Context : IDisposable
 
 		string tempOutputFile;
 
-		using (Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters() { AssemblyResolver = resolver }))
+		using (Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters() { AssemblyResolver = resolver, ReadSymbols = true, ThrowIfSymbolsAreNotMatching = false }))
 		{
 			if (Defs == null)
 			{
@@ -153,7 +153,26 @@ public class Context : IDisposable
 				if (ldstrInstruction.OpCode != OpCodes.Ldstr)
 				{
 					if (Config.WarnOnNonConstantImplicitOperator)
-						Config.Logger?.LogWarning($"`{method}`: {typeName} implicit operator with non-constant string found. Consider using 'new StringName' for clarity instead.");
+					{
+						string location;
+						if (method.DebugInformation != null && method.DebugInformation.HasSequencePoints)
+						{
+							SequencePoint? sequencePoint = GetClosestSequencePoint(method.DebugInformation.SequencePoints, callInstruction);
+							if (sequencePoint != null)
+							{
+								location = $"{sequencePoint.Document.Url}:{sequencePoint.StartLine}:{sequencePoint.StartColumn}";
+							}
+							else
+							{
+								location = $"`{method}`";
+							}
+						}
+						else
+						{
+							location = $"`{method}`";
+						}
+						Config.Logger?.LogWarning($"{location}: {typeName} implicit operator with non-constant string found. Consider using 'new StringName' for clarity instead.");
+					}
 					return;
 				}
 				if (!hasSimplifiedMacros)
@@ -184,6 +203,29 @@ public class Context : IDisposable
 
 		if (hasSimplifiedMacros)
 			method.Body.OptimizeMacros();
+	}
+
+	SequencePoint? GetClosestSequencePoint(Collection<SequencePoint> sequencePoints, Instruction instruction)
+	{
+		SequencePoint? closest = null;
+		int currentClosestDistance = int.MaxValue;
+		int instructionOffset = instruction.Offset;
+
+		foreach (SequencePoint sequencePoint in sequencePoints)
+		{
+			if (sequencePoint.Offset == instructionOffset)
+			{
+				return sequencePoint;
+			}
+			int diff = instructionOffset - sequencePoint.Offset;
+			if (diff > 0 && diff < currentClosestDistance)
+			{
+				currentClosestDistance = diff;
+				closest = sequencePoint;
+			}
+		}
+
+		return closest;
 	}
 
 	static bool IsStringToStringNameImplicitOp(MethodReference method)
