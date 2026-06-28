@@ -212,6 +212,11 @@ public class Context : IDisposable
 			method.Body.OptimizeMacros();
 	}
 
+	/// <summary>
+	/// Gets the nearest sequence point (AKA a marker of a location in a source file)
+	/// from the given instruction. Looks for a sequence point upwards.
+	/// </summary>
+	/// <returns>The closest sequence point, <c>null</c> if none was found.</returns>
 	SequencePoint? GetClosestSequencePoint(Collection<SequencePoint> sequencePoints, Instruction instruction)
 	{
 		SequencePoint? closest = null;
