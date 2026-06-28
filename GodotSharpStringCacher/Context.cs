@@ -46,7 +46,14 @@ public class Context : IDisposable
 
 		string tempOutputFile;
 
-		using (Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters() { AssemblyResolver = resolver, ReadSymbols = true, ThrowIfSymbolsAreNotMatching = false }))
+		Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters()
+		{
+			AssemblyResolver = resolver,
+			ReadSymbols = true,
+			ThrowIfSymbolsAreNotMatching = false,
+			SymbolReaderProvider = new DefaultSymbolReaderProvider(throwIfNoSymbol: false)
+		});
+		using (Module)
 		{
 			if (Defs == null)
 			{
