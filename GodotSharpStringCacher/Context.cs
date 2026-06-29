@@ -178,7 +178,7 @@ public class Context : IDisposable
 						{
 							location = $"`{method}`";
 						}
-						Config.Logger?.LogWarning($"{location}: {typeName} implicit operator with non-constant string found. Consider using 'new StringName' for clarity instead.");
+						Config.Logger?.LogWarning($"{location}: {typeName} implicit operator with non-constant string found. Consider using 'new {typeName}' for clarity instead.");
 					}
 					return;
 				}
