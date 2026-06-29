@@ -33,10 +33,10 @@ public class GDStringMainAssemblyCacheTask : Task
 	public override bool Execute()
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
-		Common.SimpleLogger backendLogger = new(this);
-		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, backendLogger);
+		Common.Logger log = new(this);
+		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 
-		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
+		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 		if (string.IsNullOrEmpty(godotSharp))
 			return false;
 
@@ -52,14 +52,14 @@ public class GDStringMainAssemblyCacheTask : Task
 
 		if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
-			Log.LogMessage($"Main assembly up to date");
+			log.Log($"Main assembly up to date");
 
 			// Output cached warnings
 			if (File.Exists(warningsFile))
 			{
 				foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
 				{
-					Log.LogWarning(warning);
+					log.LogWarning(warning);
 				}
 			}
 
@@ -69,13 +69,13 @@ public class GDStringMainAssemblyCacheTask : Task
 		using Context ctx = new(defaultConfig);
 
 		ctx.OpenGodotSharp(godotSharp);
-		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, Log))
+		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, log))
 		{
 			return false;
 		}
 
 		File.WriteAllText(hashFile, newHash);
-		File.WriteAllLines(warningsFile, backendLogger.Warnings);
+		File.WriteAllLines(warningsFile, log.Warnings);
 
 		return true;
 	}

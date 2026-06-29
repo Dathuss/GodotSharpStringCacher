@@ -13,7 +13,7 @@ namespace GodotSharpStringCacher.MSBuild;
 
 internal static class Common
 {
-	public static string GetGodotSharpFromReferencePath(ITaskItem[] referencePath, TaskLoggingHelper logger)
+	public static string GetGodotSharpFromReferencePath(ITaskItem[] referencePath, Logger log)
 	{
 		foreach (ITaskItem reference in referencePath)
 		{
@@ -25,18 +25,18 @@ internal static class Common
 			}
 		}
 
-		logger.LogError("No GodotSharp reference found in the project. Make sure you reference it or that you use Godot.NET.Sdk.");
+		log.LogError("No GodotSharp reference found in the project. Make sure you reference it or that you use Godot.NET.Sdk.");
 		return null;
 	}
 
-	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, TaskLoggingHelper log)
+	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log)
 	{
-		log.LogMessage($"{assemblyName}: Caching Godot strings...");
+		log.Log($"{assemblyName}: Caching Godot strings...");
 		try
 		{
 			ctx.RunAndSave(inputPath, outputPath);
-			log.LogMessage($"{assemblyName}: StringNames cached: {ctx.NumberOfStringNamesWritten}");
-			log.LogMessage($"{assemblyName}: NodePaths cached: {ctx.NumberOfNodePathsWritten}");
+			log.Log($"{assemblyName}: StringNames cached: {ctx.NumberOfStringNamesWritten}");
+			log.Log($"{assemblyName}: NodePaths cached: {ctx.NumberOfNodePathsWritten}");
 		}
 		catch (NoGodotSharpReferenceExeption ex)
 		{
@@ -118,9 +118,11 @@ internal static class Common
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 
-	public class SimpleLogger(Task task) : ILogger
+	public class Logger(Task task) : ILogger
 	{
-		public List<string> Warnings { get; } = [];
+		public IReadOnlyCollection<string> Warnings => _warnings;
+
+		readonly List<string> _warnings = [];
 
 		public void Log(string message)
 		{
@@ -129,7 +131,7 @@ internal static class Common
 
 		public void LogWarning(string message)
 		{
-			Warnings.Add(message);
+			_warnings.Add(message);
 			task.Log.LogWarning(message);
 		}
 
