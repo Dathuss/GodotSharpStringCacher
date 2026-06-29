@@ -79,7 +79,8 @@ public class GDStringDependencyCacheTask : Task
 				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
 				else continue;
 
-				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, new Common.SimpleLogger(this));
+				Common.SimpleLogger backendLogger = new(this);
+				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, backendLogger);
 				if (ctx == null)
 				{
 					string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
@@ -97,6 +98,7 @@ public class GDStringDependencyCacheTask : Task
 
 				string outputFile = Path.Combine(intermediateDir, Path.GetFileName(fullPath));
 				string hashFile = outputFile + ".hash.cache";
+				string warningsFile = outputFile + ".warnings.cache";
 
 				// Replace ReferencePath and ReferenceCopyLocalPaths to the cached path
 				removedReferencePath.Add(reference);
@@ -115,6 +117,16 @@ public class GDStringDependencyCacheTask : Task
 				if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 				{
 					Log.LogMessage($"Assembly {fileName} up to date");
+
+					// Output cached warnings
+					if (File.Exists(warningsFile))
+					{
+						foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
+						{
+							Log.LogWarning(warning);
+						}
+					}
+
 					continue;
 				}
 
@@ -124,6 +136,7 @@ public class GDStringDependencyCacheTask : Task
 				}
 
 				File.WriteAllText(hashFile, newHash);
+				File.WriteAllLines(warningsFile, backendLogger.Warnings);
 			}
 		}
 		finally

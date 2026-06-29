@@ -120,19 +120,22 @@ internal static class Common
 
 	public class SimpleLogger(Task task) : ILogger
 	{
+		public List<string> Warnings { get; } = [];
+
 		public void Log(string message)
 		{
 			task.Log.LogMessage(message);
 		}
 
+		public void LogWarning(string message)
+		{
+			Warnings.Add(message);
+			task.Log.LogWarning(message);
+		}
+
 		public void LogError(string message)
 		{
 			task.Log.LogError(message);
-		}
-
-		public void LogWarning(string message)
-		{
-			task.Log.LogWarning(message);
 		}
 	}
 }
