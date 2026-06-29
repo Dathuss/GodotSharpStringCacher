@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Nodes;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -118,6 +119,28 @@ internal static class Common
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 
+	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)
+	{
+		foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
+		{
+			JsonNode warningNode = JsonNode.Parse(warning);
+
+			if (warningNode.AsObject() is JsonObject warningObject) {
+				string warningMessage = (string)warningObject["message"];
+				string warningFile = (string)warningObject["file"];
+				int warningLine = (int)warningObject["line"];
+				int warningColumn = (int)warningObject["column"];
+				int warningEndLine = (int)warningObject["endLine"];
+				int warningEndColumn = (int)warningObject["endColumn"];
+				log.LogWarning(warningFile, warningLine, warningColumn, warningEndLine, warningEndColumn, warningMessage);
+			}
+			else {
+				string warningMessage = warningNode.ToString();
+				log.LogWarning(warningMessage);
+			}
+		}
+	}
+
 	public class Logger(Task task) : LoggerBase
 	{
 		public IReadOnlyCollection<string> Warnings => _warnings;
@@ -137,11 +160,21 @@ internal static class Common
 		public override void LogWarning(string message)
 		{
 			_warnings.Add(message);
+
 			task.Log.LogWarning(message);
 		}
 
 		public override void LogWarning(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
 		{
+			_warnings.Add(new JsonObject() {
+				["message"] = message,
+				["file"] = file,
+				["line"] = lineNumber,
+				["column"] = columnNumber,
+				["endLine"] = endLineNumber,
+				["endColumn"] = endColumnNumber,
+			}.ToJsonString());
+
 			task.Log.LogWarning(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
 		}
 
