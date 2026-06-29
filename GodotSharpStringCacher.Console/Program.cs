@@ -40,7 +40,7 @@ static class Program
 			PrintUsage();
 			return null;
 		}
-		return new Params(inFile, outFile, new Config(longNames, warnOnNonConstantImplicitOperator, new SimpleLogger()));
+		return new Params(inFile, outFile, new Config(longNames, warnOnNonConstantImplicitOperator, new Logger()));
 	}
 
 	public static void Main(string[] args)
@@ -73,21 +73,25 @@ static class Program
 		}
 	}
 
-	class SimpleLogger : ILogger
+	class Logger : LoggerBase
 	{
-		public void Log(string message)
+		public override void LogMessage(string message)
 		{
 			Console.WriteLine(message);
 		}
 
-		public void LogWarning(string message)
+		public override void LogWarning(string message)
 		{
+			Console.ForegroundColor = ConsoleColor.Yellow;
 			Console.WriteLine($"Warning: {message}");
+			Console.ResetColor();
 		}
 
-		public void LogError(string message)
+		public override void LogError(string message)
 		{
+			Console.ForegroundColor = ConsoleColor.Red;
 			Console.Error.WriteLine($"Error: {message}");
+			Console.ResetColor();
 		}
 	}
 }

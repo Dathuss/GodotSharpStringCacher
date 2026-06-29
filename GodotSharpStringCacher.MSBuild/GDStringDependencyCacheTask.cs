@@ -116,7 +116,7 @@ public class GDStringDependencyCacheTask : Task
 
 				if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 				{
-					log.Log($"Assembly {fileName} up to date");
+					log.LogMessage($"Assembly {fileName} up to date");
 
 					// Output cached warnings
 					if (File.Exists(warningsFile))

@@ -52,7 +52,7 @@ public class GDStringMainAssemblyCacheTask : Task
 
 		if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
-			log.Log($"Main assembly up to date");
+			log.LogMessage($"Main assembly up to date");
 
 			// Output cached warnings
 			if (File.Exists(warningsFile))

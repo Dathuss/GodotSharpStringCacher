@@ -31,12 +31,12 @@ internal static class Common
 
 	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log)
 	{
-		log.Log($"{assemblyName}: Caching Godot strings...");
+		log.LogMessage($"{assemblyName}: Caching Godot strings...");
 		try
 		{
 			ctx.RunAndSave(inputPath, outputPath);
-			log.Log($"{assemblyName}: StringNames cached: {ctx.NumberOfStringNamesWritten}");
-			log.Log($"{assemblyName}: NodePaths cached: {ctx.NumberOfNodePathsWritten}");
+			log.LogMessage($"{assemblyName}: StringNames cached: {ctx.NumberOfStringNamesWritten}");
+			log.LogMessage($"{assemblyName}: NodePaths cached: {ctx.NumberOfNodePathsWritten}");
 		}
 		catch (NoGodotSharpReferenceExeption ex)
 		{
@@ -118,26 +118,41 @@ internal static class Common
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 
-	public class Logger(Task task) : ILogger
+	public class Logger(Task task) : LoggerBase
 	{
 		public IReadOnlyCollection<string> Warnings => _warnings;
 
 		readonly List<string> _warnings = [];
 
-		public void Log(string message)
+		public override void LogMessage(string message)
 		{
 			task.Log.LogMessage(message);
 		}
 
-		public void LogWarning(string message)
+		public override void LogMessage(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
+		{
+			task.Log.LogMessage(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, MessageImportance.Normal, message);
+		}
+
+		public override void LogWarning(string message)
 		{
 			_warnings.Add(message);
 			task.Log.LogWarning(message);
 		}
 
-		public void LogError(string message)
+		public override void LogWarning(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
+		{
+			task.Log.LogWarning(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
+		}
+
+		public override void LogError(string message)
 		{
 			task.Log.LogError(message);
+		}
+
+		public override void LogError(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
+		{
+			task.Log.LogError(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
 		}
 	}
 }
