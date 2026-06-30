@@ -11,7 +11,7 @@ static class Program
 		Console.WriteLine($"Usage: {Environment.GetCommandLineArgs()[0]} <in_file> <out_file> [--long-names] [--no-warn-non-constant-implicit-operator]");
 	}
 
-	static Params? ParseParams(string[] args)
+	static Params? ParseParams(string[] args, LoggerBase log)
 	{
 		string? inFile = null;
 		string? outFile = null;
@@ -40,14 +40,16 @@ static class Program
 			PrintUsage();
 			return null;
 		}
-		return new Params(inFile, outFile, new Config(longNames, warnOnNonConstantImplicitOperator, new SimpleLogger()));
+		return new Params(inFile, outFile, new Config(longNames, warnOnNonConstantImplicitOperator, log));
 	}
 
 	public static void Main(string[] args)
 	{
+		Logger log = new();
+
 		try
 		{
-			Params? parameters = ParseParams(args);
+			Params? parameters = ParseParams(args, log);
 			if (parameters is null)
 				return;
 			using Context ctx = new(parameters.Config);
@@ -55,39 +57,43 @@ static class Program
 		}
 		catch (NoGodotSharpReferenceExeption ex)
 		{
-			Console.Error.WriteLine(ex);
+			log.LogError($"{ex}");
 			Environment.Exit(1);
 		}
 		catch (IOException ex)
 		{
-			Console.Error.WriteLine($"An IO error occured: {ex}");
+			log.LogError($"An IO error occured: {ex}");
 			Environment.Exit(1);
 		}
 		catch (Exception ex)
 		{
 			if (ex.InnerException is IOException)
-				Console.Error.WriteLine($"An IO error occured: {ex}");
+				log.LogError($"An IO error occured: {ex}");
 			else
-				Console.Error.WriteLine($"An unhandled exception occured: {ex}");
+				log.LogError($"An unhandled exception occured: {ex}");
 			Environment.Exit(1);
 		}
 	}
 
-	class SimpleLogger : ILogger
+	class Logger : LoggerBase
 	{
-		public void Log(string message)
+		public override void LogMessage(string message)
 		{
 			Console.WriteLine(message);
 		}
 
-		public void LogWarning(string message)
+		public override void LogWarning(string message)
 		{
+			Console.ForegroundColor = ConsoleColor.Yellow;
 			Console.WriteLine($"Warning: {message}");
+			Console.ResetColor();
 		}
 
-		public void LogError(string message)
+		public override void LogError(string message)
 		{
+			Console.ForegroundColor = ConsoleColor.Red;
 			Console.Error.WriteLine($"Error: {message}");
+			Console.ResetColor();
 		}
 	}
 }

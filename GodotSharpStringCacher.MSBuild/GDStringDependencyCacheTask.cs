@@ -79,11 +79,11 @@ public class GDStringDependencyCacheTask : Task
 				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
 				else continue;
 
-				Common.SimpleLogger backendLogger = new(this);
-				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, backendLogger);
+				Common.Logger log = new(this);
+				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 				if (ctx == null)
 				{
-					string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
+					string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 					if (string.IsNullOrEmpty(godotSharp))
 						return false;
 
@@ -116,27 +116,23 @@ public class GDStringDependencyCacheTask : Task
 
 				if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 				{
-					Log.LogMessage($"Assembly {fileName} up to date");
+					log.LogMessage($"Assembly {fileName} up to date");
 
-					// Output cached warnings
 					if (File.Exists(warningsFile))
 					{
-						foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
-						{
-							Log.LogWarning(warning);
-						}
+						Common.OutputCachedWarnings(warningsFile, log);
 					}
 
 					continue;
 				}
 
-				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, Log))
+				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, log))
 				{
 					return false;
 				}
 
 				File.WriteAllText(hashFile, newHash);
-				File.WriteAllLines(warningsFile, backendLogger.Warnings);
+				SerializedWarningLog.SerializeToFile(log.Warnings, warningsFile);
 			}
 		}
 		finally

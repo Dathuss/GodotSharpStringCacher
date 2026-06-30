@@ -6,6 +6,8 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -13,7 +15,7 @@ namespace GodotSharpStringCacher.MSBuild;
 
 internal static class Common
 {
-	public static string GetGodotSharpFromReferencePath(ITaskItem[] referencePath, TaskLoggingHelper logger)
+	public static string GetGodotSharpFromReferencePath(ITaskItem[] referencePath, Logger log)
 	{
 		foreach (ITaskItem reference in referencePath)
 		{
@@ -25,11 +27,11 @@ internal static class Common
 			}
 		}
 
-		logger.LogError("No GodotSharp reference found in the project. Make sure you reference it or that you use Godot.NET.Sdk.");
+		log.LogError("No GodotSharp reference found in the project. Make sure you reference it or that you use Godot.NET.Sdk.");
 		return null;
 	}
 
-	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, TaskLoggingHelper log)
+	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log)
 	{
 		log.LogMessage($"{assemblyName}: Caching Godot strings...");
 		try
@@ -118,24 +120,83 @@ internal static class Common
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 
-	public class SimpleLogger(Task task) : ILogger
+	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)
 	{
-		public List<string> Warnings { get; } = [];
+		try
+		{
+			foreach (SerializedWarningLog warningLog in SerializedWarningLog.DeserializeFromFile(warningsFile))
+			{
+				if (warningLog.File != null)
+				{
+					log.LogWarning(warningLog.File, warningLog.Line, warningLog.Column, warningLog.EndLine, warningLog.EndColumn, warningLog.Message);
+				}
+				else
+				{
+					log.LogWarning(warningLog.Message);
+				}
+			}
+		}
+		catch
+		{
+			log.LogWarning("Failed to deserialize warnings file");
+		}
+	}
 
-		public void Log(string message)
+	public class Logger(Task task) : LoggerBase
+	{
+		public IReadOnlyCollection<SerializedWarningLog> Warnings => _warnings;
+
+		readonly List<SerializedWarningLog> _warnings = [];
+
+		public override void LogMessage(string message)
 		{
 			task.Log.LogMessage(message);
 		}
 
-		public void LogWarning(string message)
+		public override void LogMessage(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
 		{
-			Warnings.Add(message);
+			task.Log.LogMessage(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, MessageImportance.Normal, message);
+		}
+
+		public override void LogWarning(string message)
+		{
+			_warnings.Add(new SerializedWarningLog(message, null, 0, 0, 0, 0));
+
 			task.Log.LogWarning(message);
 		}
 
-		public void LogError(string message)
+		public override void LogWarning(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
+		{
+			_warnings.Add(new SerializedWarningLog(message, file, lineNumber, columnNumber, endLineNumber, endColumnNumber));
+
+			task.Log.LogWarning(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
+		}
+
+		public override void LogError(string message)
 		{
 			task.Log.LogError(message);
 		}
+
+		public override void LogError(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
+		{
+			task.Log.LogError(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
+		}
 	}
 }
+
+readonly record struct SerializedWarningLog(string Message, string File, int Line, int Column, int EndLine, int EndColumn)
+{
+	public static void SerializeToFile(IReadOnlyCollection<SerializedWarningLog> warningLogs, string warningsFile)
+	{
+		using FileStream fs = System.IO.File.Create(warningsFile);
+		JsonSerializer.Serialize(fs, warningLogs, SerializedWarningLogContext.Default.IReadOnlyCollectionSerializedWarningLog);
+	}
+	public static IReadOnlyCollection<SerializedWarningLog> DeserializeFromFile(string warningsFile)
+	{
+		using FileStream fs = System.IO.File.OpenRead(warningsFile);
+		return JsonSerializer.Deserialize(fs, SerializedWarningLogContext.Default.IReadOnlyCollectionSerializedWarningLog);
+	}
+}
+
+[JsonSerializable(typeof(IReadOnlyCollection<SerializedWarningLog>))]
+sealed partial class SerializedWarningLogContext : JsonSerializerContext { }
