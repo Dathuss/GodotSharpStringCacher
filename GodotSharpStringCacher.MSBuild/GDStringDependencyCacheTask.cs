@@ -132,7 +132,7 @@ public class GDStringDependencyCacheTask : Task
 				}
 
 				File.WriteAllText(hashFile, newHash);
-				File.WriteAllLines(warningsFile, log.Warnings);
+				log.SerializeTo(warningsFile);
 			}
 		}
 		finally

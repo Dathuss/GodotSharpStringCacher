@@ -124,10 +124,10 @@ internal static class Common
 	{
 		try
 		{
-			foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
+			using var fs = File.OpenRead(warningsFile);
+			SerializedWarningLog[] deserialized = JsonSerializer.Deserialize<SerializedWarningLog[]>(fs);
+			foreach (SerializedWarningLog warningLog in deserialized)
 			{
-				SerializedWarningLog warningLog = JsonSerializer.Deserialize<SerializedWarningLog>(warning);
-
 				if (warningLog.File != null)
 				{
 					log.LogWarning(warningLog.File, warningLog.Line, warningLog.Column, warningLog.EndLine, warningLog.EndColumn, warningLog.Message);
@@ -146,9 +146,9 @@ internal static class Common
 
 	public class Logger(Task task) : LoggerBase
 	{
-		public IReadOnlyCollection<string> Warnings => _warnings;
+		public IReadOnlyCollection<SerializedWarningLog> Warnings => _warnings;
 
-		readonly List<string> _warnings = [];
+		readonly List<SerializedWarningLog> _warnings = [];
 
 		public override void LogMessage(string message)
 		{
@@ -162,14 +162,14 @@ internal static class Common
 
 		public override void LogWarning(string message)
 		{
-			_warnings.Add(JsonSerializer.Serialize(new SerializedWarningLog(message, null, 0, 0, 0, 0)));
+			_warnings.Add(new SerializedWarningLog(message, null, 0, 0, 0, 0));
 
 			task.Log.LogWarning(message);
 		}
 
 		public override void LogWarning(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
 		{
-			_warnings.Add(JsonSerializer.Serialize(new SerializedWarningLog(message, file, lineNumber, columnNumber, endLineNumber, endColumnNumber)));
+			_warnings.Add(new SerializedWarningLog(message, file, lineNumber, columnNumber, endLineNumber, endColumnNumber));
 
 			task.Log.LogWarning(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
 		}
@@ -182,6 +182,12 @@ internal static class Common
 		public override void LogError(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
 		{
 			task.Log.LogError(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
+		}
+
+		public void SerializeTo(string warningsFile)
+		{
+			using FileStream fs = File.Create(warningsFile);
+			JsonSerializer.Serialize(new Utf8JsonWriter(fs), _warnings);
 		}
 	}
 }
