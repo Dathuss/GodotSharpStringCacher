@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -121,23 +122,25 @@ internal static class Common
 
 	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)
 	{
-		foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
+		try
 		{
-			JsonNode warningNode = JsonNode.Parse(warning);
+			foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
+			{
+				SerializedWarningLog warningLog = JsonSerializer.Deserialize<SerializedWarningLog>(warning);
 
-			if (warningNode.AsObject() is JsonObject warningObject) {
-				string warningMessage = (string)warningObject["message"];
-				string warningFile = (string)warningObject["file"];
-				int warningLine = (int)warningObject["line"];
-				int warningColumn = (int)warningObject["column"];
-				int warningEndLine = (int)warningObject["endLine"];
-				int warningEndColumn = (int)warningObject["endColumn"];
-				log.LogWarning(warningFile, warningLine, warningColumn, warningEndLine, warningEndColumn, warningMessage);
+				if (warningLog.File != null)
+				{
+					log.LogWarning(warningLog.File, warningLog.Line, warningLog.Column, warningLog.EndLine, warningLog.EndColumn, warningLog.Message);
+				}
+				else
+				{
+					log.LogWarning(warningLog.Message);
+				}
 			}
-			else {
-				string warningMessage = warningNode.ToString();
-				log.LogWarning(warningMessage);
-			}
+		}
+		catch
+		{
+			log.LogWarning("Failed to deserialize warnings file");
 		}
 	}
 
@@ -159,21 +162,14 @@ internal static class Common
 
 		public override void LogWarning(string message)
 		{
-			_warnings.Add(message);
+			_warnings.Add(JsonSerializer.Serialize(new SerializedWarningLog(message, null, 0, 0, 0, 0)));
 
 			task.Log.LogWarning(message);
 		}
 
 		public override void LogWarning(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
 		{
-			_warnings.Add(new JsonObject() {
-				["message"] = message,
-				["file"] = file,
-				["line"] = lineNumber,
-				["column"] = columnNumber,
-				["endLine"] = endLineNumber,
-				["endColumn"] = endColumnNumber,
-			}.ToJsonString());
+			_warnings.Add(JsonSerializer.Serialize(new SerializedWarningLog(message, file, lineNumber, columnNumber, endLineNumber, endColumnNumber)));
 
 			task.Log.LogWarning(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
 		}
@@ -189,3 +185,5 @@ internal static class Common
 		}
 	}
 }
+
+readonly record struct SerializedWarningLog(string Message, string File, int Line, int Column, int EndLine, int EndColumn);
