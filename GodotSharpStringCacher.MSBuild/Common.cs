@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -124,9 +124,7 @@ internal static class Common
 	{
 		try
 		{
-			using var fs = File.OpenRead(warningsFile);
-			SerializedWarningLog[] deserialized = JsonSerializer.Deserialize<SerializedWarningLog[]>(fs);
-			foreach (SerializedWarningLog warningLog in deserialized)
+			foreach (SerializedWarningLog warningLog in SerializedWarningLog.DeserializeFromFile(warningsFile))
 			{
 				if (warningLog.File != null)
 				{
@@ -183,13 +181,22 @@ internal static class Common
 		{
 			task.Log.LogError(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
 		}
-
-		public void SerializeTo(string warningsFile)
-		{
-			using FileStream fs = File.Create(warningsFile);
-			JsonSerializer.Serialize(new Utf8JsonWriter(fs), _warnings);
-		}
 	}
 }
 
-readonly record struct SerializedWarningLog(string Message, string File, int Line, int Column, int EndLine, int EndColumn);
+readonly record struct SerializedWarningLog(string Message, string File, int Line, int Column, int EndLine, int EndColumn)
+{
+	public static void SerializeToFile(IReadOnlyCollection<SerializedWarningLog> warningLogs, string warningsFile)
+	{
+		using FileStream fs = System.IO.File.Create(warningsFile);
+		JsonSerializer.Serialize(fs, warningLogs, SerializedWarningLogContext.Default.IReadOnlyCollectionSerializedWarningLog);
+	}
+	public static IReadOnlyCollection<SerializedWarningLog> DeserializeFromFile(string warningsFile)
+	{
+		using FileStream fs = System.IO.File.OpenRead(warningsFile);
+		return JsonSerializer.Deserialize(fs, SerializedWarningLogContext.Default.IReadOnlyCollectionSerializedWarningLog);
+	}
+}
+
+[JsonSerializable(typeof(IReadOnlyCollection<SerializedWarningLog>))]
+sealed partial class SerializedWarningLogContext : JsonSerializerContext { }

@@ -1,6 +1,4 @@
 using System.IO;
-using System.Linq;
-using System.Text.Json.Nodes;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -72,7 +70,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		}
 
 		File.WriteAllText(hashFile, newHash);
-		log.SerializeTo(warningsFile);
+		SerializedWarningLog.SerializeToFile(log.Warnings, warningsFile);
 
 		return true;
 	}
