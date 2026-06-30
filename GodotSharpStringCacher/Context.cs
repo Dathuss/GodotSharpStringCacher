@@ -159,26 +159,18 @@ public class Context : IDisposable
 				Instruction ldstrInstruction = instructions[i - 1];
 				if (ldstrInstruction.OpCode != OpCodes.Ldstr)
 				{
-					if (Config.WarnOnNonConstantImplicitOperator)
+					if (Config.WarnOnNonConstantImplicitOperator && Config.Logger != null)
 					{
-						string location;
-						if (method.DebugInformation != null && method.DebugInformation.HasSequencePoints)
+						string warningMessage = $"{typeName} implicit operator with non-constant string found. Consider using 'new {typeName}' for clarity instead.";
+
+						if (GetClosestSequencePoint(method.DebugInformation.SequencePoints, callInstruction) is SequencePoint sequencePoint)
 						{
-							SequencePoint? sequencePoint = GetClosestSequencePoint(method.DebugInformation.SequencePoints, callInstruction);
-							if (sequencePoint != null)
-							{
-								location = $"{sequencePoint.Document.Url}:{sequencePoint.StartLine}:{sequencePoint.StartColumn}";
-							}
-							else
-							{
-								location = $"`{method}`";
-							}
+							Config.Logger.LogWarning(sequencePoint.Document.Url, sequencePoint.StartLine, sequencePoint.StartColumn, sequencePoint.EndLine, sequencePoint.EndColumn, warningMessage);
 						}
 						else
 						{
-							location = $"`{method}`";
+							Config.Logger.LogWarning($"`{method}`: {warningMessage}");
 						}
-						Config.Logger?.LogWarning($"{location}: {typeName} implicit operator with non-constant string found. Consider using 'new {typeName}' for clarity instead.");
 					}
 					return;
 				}
@@ -217,8 +209,13 @@ public class Context : IDisposable
 	/// from the given instruction. Looks for a sequence point upwards.
 	/// </summary>
 	/// <returns>The closest sequence point, <c>null</c> if none was found.</returns>
-	SequencePoint? GetClosestSequencePoint(Collection<SequencePoint> sequencePoints, Instruction instruction)
+	SequencePoint? GetClosestSequencePoint(Collection<SequencePoint>? sequencePoints, Instruction instruction)
 	{
+		if (sequencePoints == null)
+		{
+			return null;
+		}
+
 		SequencePoint? closest = null;
 		int currentClosestDistance = int.MaxValue;
 		int instructionOffset = instruction.Offset;

@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using System.Text.Json.Nodes;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -52,15 +53,11 @@ public class GDStringMainAssemblyCacheTask : Task
 
 		if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
-			log.Log($"Main assembly up to date");
+			log.LogMessage($"Main assembly up to date");
 
-			// Output cached warnings
 			if (File.Exists(warningsFile))
 			{
-				foreach (string warning in File.ReadLines(warningsFile).Where(warning => !string.IsNullOrEmpty(warning)))
-				{
-					log.LogWarning(warning);
-				}
+				Common.OutputCachedWarnings(warningsFile, log);
 			}
 
 			return true;
