@@ -4,11 +4,9 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Build.Framework;
-using Microsoft.Build.Utilities;
 
 namespace GodotSharpStringCacher.MSBuild;
 
@@ -119,11 +117,18 @@ internal static class Common
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 
+	public static void CacheLoggerWarnings(string warningsFile, IReadOnlyCollection<Logger.SerializedWarningLog> logWarnings)
+	{
+		using FileStream fs = File.Create(warningsFile);
+		JsonHelper.Serialize(logWarnings.ToArray(), fs);
+	}
+
 	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)
 	{
 		try
 		{
-			foreach (Logger.SerializedWarningLog warningLog in Logger.SerializedWarningLog.DeserializeFromFile(warningsFile))
+			using FileStream fs = File.OpenRead(warningsFile);
+			foreach (Logger.SerializedWarningLog warningLog in JsonHelper.Deserialize<Logger.SerializedWarningLog[]>(fs))
 			{
 				if (warningLog.File != null)
 				{
@@ -138,68 +143,6 @@ internal static class Common
 		catch
 		{
 			log.LogWarning("Failed to deserialize warnings file");
-		}
-	}
-
-	public class Logger(Task task) : LoggerBase
-	{
-		public IReadOnlyCollection<SerializedWarningLog> Warnings => _warnings;
-
-		readonly List<SerializedWarningLog> _warnings = [];
-
-		public override void LogMessage(string message)
-		{
-			task.Log.LogMessage(message);
-		}
-
-		public override void LogMessage(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
-		{
-			task.Log.LogMessage(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, MessageImportance.Normal, message);
-		}
-
-		public override void LogWarning(string message)
-		{
-			_warnings.Add(new SerializedWarningLog(message, null, 0, 0, 0, 0));
-
-			task.Log.LogWarning(message);
-		}
-
-		public override void LogWarning(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
-		{
-			_warnings.Add(new SerializedWarningLog(message, file, lineNumber, columnNumber, endLineNumber, endColumnNumber));
-
-			task.Log.LogWarning(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
-		}
-
-		public override void LogError(string message)
-		{
-			task.Log.LogError(message);
-		}
-
-		public override void LogError(string file, int lineNumber, int columnNumber, int endLineNumber, int endColumnNumber, string message)
-		{
-			task.Log.LogError(null, null, null, file, lineNumber, columnNumber, endLineNumber, endColumnNumber, message);
-		}
-
-		[DataContract]
-		public readonly record struct SerializedWarningLog(
-			[property: DataMember] string Message,
-			[property: DataMember] string File,
-			[property: DataMember] int Line,
-			[property: DataMember] int Column,
-			[property: DataMember] int EndLine,
-			[property: DataMember] int EndColumn)
-		{
-			public static void SerializeToFile(IReadOnlyCollection<SerializedWarningLog> warningLogs, string warningsFile)
-			{
-				using FileStream fs = System.IO.File.Create(warningsFile);
-				JsonHelper.Serialize(warningLogs.ToArray(), fs);
-			}
-			public static IReadOnlyCollection<SerializedWarningLog> DeserializeFromFile(string warningsFile)
-			{
-				using FileStream fs = System.IO.File.OpenRead(warningsFile);
-				return JsonHelper.Deserialize<SerializedWarningLog[]>(fs);
-			}
 		}
 	}
 }
