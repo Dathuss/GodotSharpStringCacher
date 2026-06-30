@@ -44,9 +44,17 @@ internal class CacheTypesEmitter(Context ctx)
 	/// </summary
 	public void EmitTypes()
 	{
+		MethodReference generatedCodeAttributeCtor = ctx.Module.ImportReference(typeof(System.CodeDom.Compiler.GeneratedCodeAttribute).GetConstructor([typeof(string), typeof(string)]));
+		CustomAttribute generatedCodeAttribute = new(generatedCodeAttributeCtor);
+		CustomAttributeArgument toolArgument = new(ctx.Module.TypeSystem.String, nameof(GodotSharpStringCacher));
+		CustomAttributeArgument versionArgument = new(ctx.Module.TypeSystem.String, typeof(Context).Assembly.GetName().Version.ToString());
+		generatedCodeAttribute.ConstructorArguments.Add(toolArgument);
+		generatedCodeAttribute.ConstructorArguments.Add(versionArgument);
+
 		TypeDefinition EmitType(string name, Dictionary<string, FieldDefinition> namesToCache, MethodReference ctorMethod)
 		{
 			TypeDefinition type = new("", name, TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit, ctx.Module.TypeSystem.Object);
+			type.CustomAttributes.Add(generatedCodeAttribute);
 
 			/*
 				Note: `.cctor` is the name of a type's static constructor.
