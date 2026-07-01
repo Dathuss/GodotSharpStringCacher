@@ -79,7 +79,7 @@ public class GDStringDependencyCacheTask : Task
 				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
 				else continue;
 
-				Common.Logger log = new(this);
+				Logger log = new(this);
 				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 				if (ctx == null)
 				{
@@ -132,7 +132,7 @@ public class GDStringDependencyCacheTask : Task
 				}
 
 				File.WriteAllText(hashFile, newHash);
-				SerializedWarningLog.SerializeToFile(log.Warnings, warningsFile);
+				Common.CacheLoggerWarnings(warningsFile, log);
 			}
 		}
 		finally

@@ -32,7 +32,7 @@ public class GDStringMainAssemblyCacheTask : Task
 	public override bool Execute()
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
-		Common.Logger log = new(this);
+		Logger log = new(this);
 		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 
 		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
@@ -70,7 +70,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		}
 
 		File.WriteAllText(hashFile, newHash);
-		SerializedWarningLog.SerializeToFile(log.Warnings, warningsFile);
+		Common.CacheLoggerWarnings(warningsFile, log);
 
 		return true;
 	}
