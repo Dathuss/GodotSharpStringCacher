@@ -132,7 +132,7 @@ internal static class Common
 		}
 		catch
 		{
-			log.LogWarning("Failed to serialize warnings file");
+			log.LogWarning("Failed to update warnings file");
 		}
 	}
 
