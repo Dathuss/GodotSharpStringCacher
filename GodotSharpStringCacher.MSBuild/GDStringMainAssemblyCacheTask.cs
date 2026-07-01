@@ -70,7 +70,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		}
 
 		File.WriteAllText(hashFile, newHash);
-		Common.CacheLoggerWarnings(warningsFile, log.Warnings);
+		Common.CacheLoggerWarnings(warningsFile, log);
 
 		return true;
 	}

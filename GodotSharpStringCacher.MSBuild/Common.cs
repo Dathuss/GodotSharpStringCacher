@@ -117,17 +117,23 @@ internal static class Common
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 
-	public static void CacheLoggerWarnings(string warningsFile, IReadOnlyCollection<Logger.SerializedWarningLog> logWarnings)
+	public static void CacheLoggerWarnings(string warningsFile, Logger log)
 	{
-		if (logWarnings.Count == 0)
+		try
 		{
-			// Removes the file if it was there previously
-			// Otherwise older warnings will appear
-			File.Delete(warningsFile);
-			return;
+			if (log.Warnings.Count == 0)
+			{
+				// Removes the file if it was there previously (otherwise older warnings will appear)
+				File.Delete(warningsFile);
+				return;
+			}
+			using FileStream fs = File.Create(warningsFile);
+			JsonHelper.Serialize(log.Warnings.ToArray(), fs);
 		}
-		using FileStream fs = File.Create(warningsFile);
-		JsonHelper.Serialize(logWarnings.ToArray(), fs);
+		catch
+		{
+			log.LogWarning("Failed to update warnings file");
+		}
 	}
 
 	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)
