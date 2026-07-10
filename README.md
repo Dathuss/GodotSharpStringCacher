@@ -2,6 +2,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/GodotSharpStringCacher.MSBuild.svg)](https://www.nuget.org/packages/GodotSharpStringCacher.MSBuild)
 
+(Make sure to upvote [the related proposal to merge into Godot](https://github.com/godotengine/godot-proposals/issues/15089), it would help a ton !)
+
 # What?
 
 Godot uses its own string types meant for specific uses: `StringName` and `NodePath`. `StringName` is optimized for fast equality comparisons and hash lookups, and `NodePath` is optimized for storing scene tree paths.
