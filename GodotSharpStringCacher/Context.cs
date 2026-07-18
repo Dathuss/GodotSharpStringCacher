@@ -82,48 +82,56 @@ public class Context : IDisposable
 
 			// Mono.Cecil will not behave correctly if you write to a module to itself
 			// So we write it to a temp file first.
-			// However, the pdb file will be written relative to this temporary file too.
-			// Since the DLL file holds the name of its PDB file, it means
-			// it has to properly be named, otherwise the PDB file will not be found by the runtime
-			tempDirectory = GetTempDir();
+
+			// However, if a PDB file has to be emitted, it will be written relative to this temporary file too.
+			// For example: for `tmp.qwerty.dll`, a pdb file named `tmp.qwerty.pdb` would be written.
+			// A managed assembly holds the name of its associated PDB file, and in release builds,
+			// this is the only file that the runtime will attempt to read.
+			// This means we have to give the temporary file the same name as the output file,
+			// so we put it in a temporary directory to give it the name we want without potentially overwriting another file.
+			tempDirectory = CreateTempDir();
 			tempOutputFile = Path.Combine(tempDirectory, Path.GetFileName(outputFile));
 			if (Module.HasSymbols)
 			{
+				// Write DLL with optional PDB
 				WriterParameters writerParameters = new()
 				{
 					WriteSymbols = true,
 					SymbolWriterProvider = new DefaultSymbolWriterProvider(),
 				};
 				Module.Write(tempOutputFile, writerParameters);
+
+				// Check if optional PDB was also written
 				string cecilOutputPdb = Path.ChangeExtension(tempOutputFile, ".pdb");
 				if (File.Exists(cecilOutputPdb))
 				{
+					// Move the optional PDB to the directory where the DLL will be moved to
 					string outputPdb = Path.ChangeExtension(outputFile, ".pdb");
-					MoveOverwrite(cecilOutputPdb, outputPdb);
+					MoveFileWithOverwrite(cecilOutputPdb, outputPdb);
 				}
 			}
 			else
 			{
+				// Write DLL without PDB (since no symbols are present)
 				Module.Write(tempOutputFile);
 			}
 		}
 
-		MoveOverwrite(tempOutputFile, outputFile);
-		Directory.Delete(tempDirectory);
+		MoveFileWithOverwrite(tempOutputFile, outputFile);
+		Directory.Delete(tempDirectory, recursive: true); // Directory should be empty, but delete recursively just to make sure
 	}
 
-	void MoveOverwrite(string sourceFile, string destFile)
+	static void MoveFileWithOverwrite(string sourceFile, string destFile)
 	{
-		// netstandard2.0 does not yet support the overwrite parameter in File.Move.
-		// We have to do it by hand
+		// netstandard2.0 does not yet support the overwrite parameter in File.Move
+		// So we have to do it manually.
 		File.Delete(destFile);
 		File.Move(sourceFile, destFile);
 	}
 
-	string GetTempDir()
+	static string CreateTempDir()
 	{
 		string result;
-
 		do
 		{
 			result = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
