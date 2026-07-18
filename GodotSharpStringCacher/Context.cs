@@ -44,7 +44,7 @@ public class Context : IDisposable
 			resolver.AddSearchDirectory(GodotSharpDirectory);
 		resolver.AddSearchDirectory(directory);
 
-		string tempOutputFile;
+		string tempDirectory, tempOutputFile;
 
 		Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters()
 		{
@@ -81,15 +81,56 @@ public class Context : IDisposable
 			NumberOfNodePathsWritten = CacheTypesEmitter.NodePathsToCache.Count;
 
 			// Mono.Cecil will not behave correctly if you write to a module to itself
-			// So we write it to memory first, then overwrite the file.
-			tempOutputFile = Path.GetTempFileName();
-			Module.Write(tempOutputFile);
+			// So we write it to a temp file first.
+			// However, the pdb file will be written relative to this temporary file too.
+			// Since the DLL file holds the name of its PDB file, it means
+			// it has to properly be named, otherwise the PDB file will not be found by the runtime
+			tempDirectory = GetTempDir();
+			tempOutputFile = Path.Combine(tempDirectory, Path.GetFileName(outputFile));
+			if (Module.HasSymbols)
+			{
+				WriterParameters writerParameters = new()
+				{
+					WriteSymbols = true,
+					SymbolWriterProvider = new DefaultSymbolWriterProvider(),
+				};
+				Module.Write(tempOutputFile, writerParameters);
+				string cecilOutputPdb = Path.ChangeExtension(tempOutputFile, ".pdb");
+				if (File.Exists(cecilOutputPdb))
+				{
+					string outputPdb = Path.ChangeExtension(outputFile, ".pdb");
+					MoveOverwrite(cecilOutputPdb, outputPdb);
+				}
+			}
+			else
+			{
+				Module.Write(tempOutputFile);
+			}
 		}
 
-		// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
-		// So we delete it manually.
-		File.Delete(outputFile);
-		File.Move(tempOutputFile, outputFile);
+		MoveOverwrite(tempOutputFile, outputFile);
+		Directory.Delete(tempDirectory);
+	}
+
+	void MoveOverwrite(string sourceFile, string destFile)
+	{
+		// netstandard2.0 does not yet support the overwrite parameter in File.Move.
+		// We have to do it by hand
+		File.Delete(destFile);
+		File.Move(sourceFile, destFile);
+	}
+
+	string GetTempDir()
+	{
+		string result;
+
+		do
+		{
+			result = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+		} while (Directory.Exists(result));
+
+		Directory.CreateDirectory(result);
+		return result;
 	}
 
 	/// <summary>
