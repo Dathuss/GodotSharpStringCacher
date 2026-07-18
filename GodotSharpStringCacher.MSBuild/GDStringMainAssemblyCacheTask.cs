@@ -29,6 +29,9 @@ public class GDStringMainAssemblyCacheTask : Task
 	[Output]
 	public ITaskItem CachedIntermediateAssembly { get; set; }
 
+	[Output]
+	public string OutputPdbFile { get; set; }
+
 	public override bool Execute()
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
@@ -67,6 +70,13 @@ public class GDStringMainAssemblyCacheTask : Task
 		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, log))
 		{
 			return false;
+		}
+
+		// Depending on the build configuration, the output pdb file may not exist.
+		string potentialPdbFilePath = Path.ChangeExtension(outputFile, ".pdb");
+		if (File.Exists(potentialPdbFilePath))
+		{
+			OutputPdbFile = potentialPdbFilePath;
 		}
 
 		File.WriteAllText(hashFile, newHash);

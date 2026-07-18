@@ -15,6 +15,11 @@
     <!-- Use long variable names that look like the literal string value -->
     <!-- This value can be overriden at the declaration level -->
     <GDStringUseLongNames Condition="'$(GDStringUseLongNames)' == ''">false</GDStringUseLongNames>
+
+    <!-- We will manually copy the symbol file, since it has to be rebuilt by Cecil -->
+    <!-- And unlike ReferencePath or IntermediateAssembly, we cannot inject a custom path into the normal build flow -->
+    <SkipCopyingSymbolsToOutputDirectory>true</SkipCopyingSymbolsToOutputDirectory>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
 
   <Target Name="CacheDependenciesStrings" AfterTargets="ResolveAssemblyReferences" >
@@ -54,13 +59,33 @@
       UseLongNamesByDefault="$(GDStringUseLongNames)"
     >
       <Output TaskParameter="CachedIntermediateAssembly" ItemName="_CachedIntermediateAssembly" />
+      <Output TaskParameter="OutputPdbFile" ItemName="_OutputPdbFile" />
 
     </GDStringMainAssemblyCacheTask>
 
     <ItemGroup>
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
       <IntermediateAssembly Include="@(_CachedIntermediateAssembly)" />
+      
+      <!-- Add our custom PDB as a file to publish -->
+      <ResolvedFileToPublish Include="@(_OutputPdbFile)">
+        <RelativePath>@(_OutputPdbFile->'%(Filename)%(Extension)')</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
     </ItemGroup>
+  </Target>
+
+  <Target Name="CopyMainAssemblySymbols" AfterTargets="CopyFilesToOutputDirectory" >
+    <Copy
+      SourceFiles="@(_OutputPdbFile)"
+      DestinationFiles="@(MainAssembly->'%(RootDir)%(Directory)%(Filename).pdb')"
+      SkipUnchangedFiles="$(SkipCopyUnchangedFiles)"
+      OverwriteReadOnlyFiles="$(OverwriteReadOnlyFiles)"
+      Retries="$(CopyRetryCount)"
+      RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)"
+      UseHardlinksIfPossible="$(CreateHardLinksForCopyFilesToOutputDirectoryIfPossible)"
+      UseSymboliclinksIfPossible="$(CreateSymbolicLinksForCopyFilesToOutputDirectoryIfPossible)"
+      ErrorIfLinkFails="$(ErrorIfLinkFailsForCopyFilesToOutputDirectory)" />
   </Target>
 
   <Target Name="CleanCachedStringAssemblies" AfterTargets="CoreClean">
