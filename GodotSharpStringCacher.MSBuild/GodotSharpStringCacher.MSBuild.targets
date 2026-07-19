@@ -17,6 +17,25 @@
     <GDStringUseLongNames Condition="'$(GDStringUseLongNames)' == ''">false</GDStringUseLongNames>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
+    <!--
+      The main assembly's symbols file (aka PDB file) has to be rebuilt by Cecil.
+      Unfortunately, for this specific file, we cannot reinject it into the normal build flow,
+      so we will copy it by hand
+    -->
+    <SkipCopyingSymbolsToOutputDirectory>true</SkipCopyingSymbolsToOutputDirectory>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
+  <!--
+    ======================================================
+                    CacheDependenciesStrings
+    Runs after ResolveAssemblyReferences.
+    Will patch dependency assemblies marked with CacheStrings, and their associated symbols file, if exists.
+    The patched files will be cached in the intermediate folder, and SDK Items that track dependencies
+    will get redirected to the new paths. This way, the build flow can seamlessly continue.
+    ======================================================
+  -->
   <Target Name="CacheDependenciesStrings" AfterTargets="ResolveAssemblyReferences" >
     <GDStringDependencyCacheTask
       IntermediateOutputPath="$(IntermediateOutputPath)" 
@@ -32,6 +51,7 @@
       <Output TaskParameter="AddedReferencePath" ItemName="_AddedReferencePath" />
       <Output TaskParameter="RemovedReferenceCopyLocalPaths" ItemName="_RemovedReferenceCopyLocalPaths" />
       <Output TaskParameter="AddedReferenceCopyLocalPaths" ItemName="_AddedReferenceCopyLocalPaths" />
+      <Output TaskParameter="EmittedFiles" ItemName="FileWrites" />
     </GDStringDependencyCacheTask>
 
     <ItemGroup>
@@ -43,6 +63,16 @@
     </ItemGroup>
   </Target>
 
+  <!--
+    ======================================================
+                    CacheMainAssemblyStrings
+    Runs before CopyFilesToOutputDirectory.
+    Will patch the main assembly and its associated symbols file, if exists.
+    The DLL will be cached in the intermediate folder, and SDK Items that track it
+    will get redirected to the new path. This way, the build flow can seamlessly continue.
+    Unfortunately, we cannot do this for the PDB file, which we will have to copy by hand.
+    ======================================================
+  -->
   <Target Name="CacheMainAssemblyStrings" BeforeTargets="CopyFilesToOutputDirectory" Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
     <GDStringMainAssemblyCacheTask
       AssemblyName="$(AssemblyName)"
@@ -54,17 +84,38 @@
       UseLongNamesByDefault="$(GDStringUseLongNames)"
     >
       <Output TaskParameter="CachedIntermediateAssembly" ItemName="_CachedIntermediateAssembly" />
-
+      <Output TaskParameter="OutputPdbFile" ItemName="_OutputPdbFile" />
+      <Output TaskParameter="EmittedFiles" ItemName="FileWrites" />
     </GDStringMainAssemblyCacheTask>
 
     <ItemGroup>
       <IntermediateAssembly Remove="@(IntermediateAssembly)" />
       <IntermediateAssembly Include="@(_CachedIntermediateAssembly)" />
+      
+      <!-- Add our custom PDB as a file to publish -->
+      <ResolvedFileToPublish Include="@(_OutputPdbFile)">
+        <RelativePath>@(_OutputPdbFile->'%(Filename)%(Extension)')</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
     </ItemGroup>
-  </Target>
 
-  <Target Name="CleanCachedStringAssemblies" AfterTargets="CoreClean">
-    <RemoveDir Condition="'$(IntermediateOutputPath)' != ''" Directories="$(IntermediateOutputPath)string-cache" />
+    <!--
+      Most of these parameters are copied from the sdk file, because we want to maintain
+      something as close as the normal build as possible.
+    -->
+    <Copy
+      SourceFiles="@(_OutputPdbFile)"
+      DestinationFiles="@(IntermediateAssembly->'$(OutDir)%(Filename).pdb')"
+      SkipUnchangedFiles="$(SkipCopyUnchangedFiles)"
+      OverwriteReadOnlyFiles="$(OverwriteReadOnlyFiles)"
+      Retries="$(CopyRetryCount)"
+      RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)"
+      UseHardlinksIfPossible="$(CreateHardLinksForCopyFilesToOutputDirectoryIfPossible)"
+      UseSymboliclinksIfPossible="$(CreateSymbolicLinksForCopyFilesToOutputDirectoryIfPossible)"
+      ErrorIfLinkFails="$(ErrorIfLinkFailsForCopyFilesToOutputDirectory)"
+    >
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
   </Target>
 
   <ItemDefinitionGroup>

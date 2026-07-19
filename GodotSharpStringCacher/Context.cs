@@ -34,7 +34,7 @@ public class Context : IDisposable
 	public int NumberOfStringNamesWritten { get; set; }
 	public int NumberOfNodePathsWritten { get; set; }
 
-	public void RunAndSave(string inputFile, string outputFile)
+	public void RunAndSave(string inputFile, string outputFile, out string? outputPdbFile)
 	{
 		FileName = inputFile;
 
@@ -44,7 +44,8 @@ public class Context : IDisposable
 			resolver.AddSearchDirectory(GodotSharpDirectory);
 		resolver.AddSearchDirectory(directory);
 
-		string tempOutputFile;
+		string tempDirectory, tempOutputFile;
+		outputPdbFile = null;
 
 		Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters()
 		{
@@ -81,15 +82,74 @@ public class Context : IDisposable
 			NumberOfNodePathsWritten = CacheTypesEmitter.NodePathsToCache.Count;
 
 			// Mono.Cecil will not behave correctly if you write to a module to itself
-			// So we write it to memory first, then overwrite the file.
-			tempOutputFile = Path.GetTempFileName();
-			Module.Write(tempOutputFile);
+			// So we write it to a temp file first.
+
+			// However, if a PDB file has to be emitted, it will be written relative to this temporary file too.
+			// For example: for `tmp.qwerty.dll`, a PDB file named `tmp.qwerty.pdb` would be written.
+			// A managed assembly holds the name of its associated PDB file, and in release builds,
+			// this is the only file that the runtime will attempt to read.
+			// This means we have to give the temporary file the same name as the output file,
+			// so we put it in a temporary directory to give it the name we want without potentially overwriting another file.
+			tempDirectory = CreateTempDir();
+			tempOutputFile = Path.Combine(tempDirectory, Path.GetFileName(outputFile));
+			if (Module.HasSymbols)
+			{
+				// Write DLL with optional PDB
+				WriterParameters writerParameters = new()
+				{
+					WriteSymbols = true,
+					SymbolWriterProvider = new DefaultSymbolWriterProvider(),
+				};
+				Module.Write(tempOutputFile, writerParameters);
+
+				// Check if optional PDB was also written
+				string cecilOutputPdb = GetPdbFileName(tempOutputFile);
+				if (File.Exists(cecilOutputPdb))
+				{
+					// Move the optional PDB to the directory where the DLL will be moved to
+					outputPdbFile = GetPdbFileName(outputFile);
+					MoveFileWithOverwrite(cecilOutputPdb, outputPdbFile);
+				}
+			}
+			else
+			{
+				// Write DLL without PDB (since no symbols are present)
+				Module.Write(tempOutputFile);
+			}
 		}
 
-		// Note: netstandard2.0 does not yet support the overwrite parameter in File.Move
-		// So we delete it manually.
-		File.Delete(outputFile);
-		File.Move(tempOutputFile, outputFile);
+		MoveFileWithOverwrite(tempOutputFile, outputFile);
+		Directory.Delete(tempDirectory, recursive: true); // Directory should be empty, but delete recursively just to make sure
+	}
+
+	public void RunAndSave(string inputFile, string outputFile)
+	{
+		RunAndSave(inputFile, outputFile, out _);
+	}
+
+	static void MoveFileWithOverwrite(string sourceFile, string destFile)
+	{
+		// netstandard2.0 does not yet support the overwrite parameter in File.Move
+		// So we have to do it manually.
+		File.Delete(destFile);
+		File.Move(sourceFile, destFile);
+	}
+
+	static string CreateTempDir()
+	{
+		string result;
+		do
+		{
+			result = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+		} while (Directory.Exists(result));
+
+		Directory.CreateDirectory(result);
+		return result;
+	}
+
+	public static string GetPdbFileName(string assemblyFileName)
+	{
+		return Path.ChangeExtension(assemblyFileName, ".pdb");
 	}
 
 	/// <summary>

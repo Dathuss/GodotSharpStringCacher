@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
 
 namespace GodotSharpStringCacher.MSBuild;
 
@@ -28,12 +29,15 @@ internal static class Common
 		return null;
 	}
 
-	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log)
+	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log, out bool isPdbFileOutputted)
 	{
+		isPdbFileOutputted = false;
 		log.LogMessage($"{assemblyName}: Caching Godot strings...");
 		try
 		{
-			ctx.RunAndSave(inputPath, outputPath);
+			string outputPdbFile;
+			ctx.RunAndSave(inputPath, outputPath, out outputPdbFile);
+			isPdbFileOutputted = outputPdbFile != null;
 			log.LogMessage($"{assemblyName}: StringNames cached: {ctx.NumberOfStringNamesWritten}");
 			log.LogMessage($"{assemblyName}: NodePaths cached: {ctx.NumberOfNodePathsWritten}");
 		}
@@ -117,15 +121,20 @@ internal static class Common
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 
-	public static void CacheLoggerWarnings(string warningsFile, Logger log)
+	public static TaskItem CloneWithNewItemSpec(this ITaskItem originTaskItem, string itemSpec)
+	{
+		TaskItem copy = new(itemSpec);
+		originTaskItem.CopyMetadataTo(copy);
+		return copy;
+	}
+
+	public static bool CacheLoggerWarnings(string warningsFile, Logger log)
 	{
 		try
 		{
 			if (log.Warnings.Count == 0)
 			{
-				// Removes the file if it was there previously (otherwise older warnings will appear)
-				File.Delete(warningsFile);
-				return;
+				return false;
 			}
 			using FileStream fs = File.Create(warningsFile);
 			JsonHelper.Serialize(log.Warnings.ToArray(), fs);
@@ -133,7 +142,9 @@ internal static class Common
 		catch
 		{
 			log.LogWarning("Failed to update warnings file");
+			return false;
 		}
+		return true;
 	}
 
 	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)

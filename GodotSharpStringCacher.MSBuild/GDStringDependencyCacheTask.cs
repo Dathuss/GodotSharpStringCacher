@@ -46,6 +46,9 @@ public class GDStringDependencyCacheTask : Task
 	[Output]
 	public ITaskItem[] AddedReferenceCopyLocalPaths { get; set; }
 
+	[Output]
+	public ITaskItem[] EmittedFiles { get; set; }
+
 	public override bool Execute()
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
@@ -58,6 +61,8 @@ public class GDStringDependencyCacheTask : Task
 
 		List<ITaskItem> removedReferenceCopyLocalPaths = [];
 		List<ITaskItem> addedReferenceCopyLocalPaths = [];
+
+		List<ITaskItem> emittedFiles = [];
 
 		Context ctx = null;
 
@@ -99,40 +104,69 @@ public class GDStringDependencyCacheTask : Task
 				string outputFile = Path.Combine(intermediateDir, Path.GetFileName(fullPath));
 				string hashFile = outputFile + ".hash.cache";
 				string warningsFile = outputFile + ".warnings.cache";
+				string pdbFile = Context.GetPdbFileName(outputFile);
 
 				// Replace ReferencePath and ReferenceCopyLocalPaths to the cached path
 				removedReferencePath.Add(reference);
 
-				TaskItem cachedReference = new(outputFile);
-				reference.CopyMetadataTo(cachedReference);
+				TaskItem cachedReference = reference.CloneWithNewItemSpec(outputFile);
 				addedReferencePath.Add(cachedReference);
+				emittedFiles.Add(cachedReference);
 
 				ITaskItem referenceOfReferenceCopyLocalPaths = ReferenceCopyLocalPaths.First(x => x.GetMetadata("FileName") == fileName && x.GetMetadata("Extension") == ".dll");
 				removedReferenceCopyLocalPaths.Add(referenceOfReferenceCopyLocalPaths);
 
-				TaskItem cachedReferenceForCopy = new(outputFile);
-				referenceOfReferenceCopyLocalPaths.CopyMetadataTo(cachedReferenceForCopy);
+				TaskItem cachedReferenceForCopy = referenceOfReferenceCopyLocalPaths.CloneWithNewItemSpec(outputFile);
 				addedReferenceCopyLocalPaths.Add(cachedReferenceForCopy);
 
-				if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
+				// Try to replace symbol file of ReferenceCopyLocalPaths
+				ITaskItem pdbOfReferenceCopyLocalPaths = ReferenceCopyLocalPaths.FirstOrDefault(x => x.GetMetadata("FileName") == fileName && x.GetMetadata("Extension") == ".pdb");
+				if (pdbOfReferenceCopyLocalPaths != null)
+				{
+					removedReferenceCopyLocalPaths.Add(pdbOfReferenceCopyLocalPaths);
+
+					TaskItem cachedPdbForCopy = pdbOfReferenceCopyLocalPaths.CloneWithNewItemSpec(pdbFile);
+					addedReferenceCopyLocalPaths.Add(cachedPdbForCopy);
+					emittedFiles.Add(cachedPdbForCopy);
+				}
+
+				emittedFiles.Add(new TaskItem(hashFile));
+
+				if (File.Exists(outputFile) && File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 				{
 					log.LogMessage($"Assembly {fileName} up to date");
 
 					if (File.Exists(warningsFile))
 					{
 						Common.OutputCachedWarnings(warningsFile, log);
+						emittedFiles.Add(new TaskItem(warningsFile));
+					}
+
+					if (File.Exists(pdbFile))
+					{
+						emittedFiles.Add(new TaskItem(pdbFile));
 					}
 
 					continue;
 				}
 
-				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, log))
+				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, log, out bool isPdbFileOutputted))
 				{
 					return false;
 				}
 
+				if (pdbOfReferenceCopyLocalPaths != null && !isPdbFileOutputted)
+				{
+					// Unlikely to happen, but it's better to record it
+					Log.LogWarning($"Dependency {fileName} was supposed to output a PDB file when patched, but it didn't. This shouldn't happen.");
+					emittedFiles.RemoveAll(x => x.ItemSpec == pdbFile);
+				}
+
 				File.WriteAllText(hashFile, newHash);
-				Common.CacheLoggerWarnings(warningsFile, log);
+				if (Common.CacheLoggerWarnings(warningsFile, log))
+				{
+					emittedFiles.Add(new TaskItem(warningsFile));
+				}
 			}
 		}
 		finally
@@ -145,6 +179,8 @@ public class GDStringDependencyCacheTask : Task
 
 		RemovedReferenceCopyLocalPaths = removedReferenceCopyLocalPaths.ToArray();
 		AddedReferenceCopyLocalPaths = addedReferenceCopyLocalPaths.ToArray();
+
+		EmittedFiles = emittedFiles.ToArray();
 
 		return true;
 	}
