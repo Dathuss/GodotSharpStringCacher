@@ -7,34 +7,36 @@ namespace GodotSharpStringCacher.MSBuild;
 
 public class GDStringMainAssemblyCacheTask : Task
 {
+#nullable disable // MSBuild arguments are not nullable
 	[Required]
-	public string AssemblyName { get; set; } = null!;
+	public string AssemblyName { get; set; }
 
 	[Required]
-	public ITaskItem IntermediateAssembly { get; set; } = null!;
+	public ITaskItem IntermediateAssembly { get; set; }
 
 	[Required]
-	public ITaskItem[] ReferencePath { get; set; } = null!;
+	public ITaskItem[] ReferencePath { get; set; }
 
 	[Required]
-	public string IntermediateOutputPath { get; set; } = null!;
+	public string IntermediateOutputPath { get; set; }
 
 
 	[Required]
-	public bool WarnOnNonConstantImplicitOperator { get; set; } = false;
+	public bool WarnOnNonConstantImplicitOperator { get; set; }
 
 	[Required]
-	public bool UseLongNamesByDefault { get; set; } = false;
+	public bool UseLongNamesByDefault { get; set; }
 
 
 	[Output]
-	public ITaskItem CachedIntermediateAssembly { get; set; } = null!;
+	public ITaskItem CachedIntermediateAssembly { get; set; }
 
 	[Output]
-	public string OutputPdbFile { get; set; } = null!;
+	public string OutputPdbFile { get; set; }
 
 	[Output]
-	public ITaskItem[] EmittedFiles { get; set; } = null!;
+	public ITaskItem[] EmittedFiles { get; set; }
+#nullable restore
 
 	public override bool Execute()
 	{

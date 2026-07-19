@@ -11,43 +11,45 @@ namespace GodotSharpStringCacher.MSBuild;
 /// </summary>
 public class GDStringDependencyCacheTask : Task
 {
+#nullable disable // MSBuild arguments are not nullable
 	[Required]
-	public string IntermediateOutputPath { get; set; } = null!;
+	public string IntermediateOutputPath { get; set; }
 
 	[Required]
-	public ITaskItem[] ReferencePath { get; set; } = null!;
+	public ITaskItem[] ReferencePath { get; set; }
 
 	[Required]
-	public ITaskItem[] ReferenceCopyLocalPaths { get; set; } = null!;
+	public ITaskItem[] ReferenceCopyLocalPaths { get; set; }
 
 	[Required]
-	public ITaskItem[] PackageReference { get; set; } = null!;
+	public ITaskItem[] PackageReference { get; set; }
 
 
 	[Required]
-	public ITaskItem[] CacheStrings { get; set; } = null!;
+	public ITaskItem[] CacheStrings { get; set; }
 
 	[Required]
-	public bool WarnOnNonConstantImplicitOperator { get; set; } = false;
+	public bool WarnOnNonConstantImplicitOperator { get; set; }
 
 	[Required]
-	public bool UseLongNamesByDefault { get; set; } = false;
+	public bool UseLongNamesByDefault { get; set; }
 
 	
 	[Output]
-	public ITaskItem[] RemovedReferencePath { get; set; } = null!;
+	public ITaskItem[] RemovedReferencePath { get; set; }
 
 	[Output]
-	public ITaskItem[] AddedReferencePath { get; set; } = null!;
+	public ITaskItem[] AddedReferencePath { get; set; }
 
 	[Output]
-	public ITaskItem[] RemovedReferenceCopyLocalPaths { get; set; } = null!;
+	public ITaskItem[] RemovedReferenceCopyLocalPaths { get; set; }
 
 	[Output]
-	public ITaskItem[] AddedReferenceCopyLocalPaths { get; set; } = null!;
+	public ITaskItem[] AddedReferenceCopyLocalPaths { get; set; }
 
 	[Output]
-	public ITaskItem[] EmittedFiles { get; set; } = null!;
+	public ITaskItem[] EmittedFiles { get; set; }
+#nullable restore
 
 	public override bool Execute()
 	{
