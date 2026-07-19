@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -32,6 +33,9 @@ public class GDStringMainAssemblyCacheTask : Task
 	[Output]
 	public string OutputPdbFile { get; set; }
 
+	[Output]
+	public ITaskItem[] EmittedFiles { get; set; }
+
 	public override bool Execute()
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
@@ -41,23 +45,36 @@ public class GDStringMainAssemblyCacheTask : Task
 		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 		if (string.IsNullOrEmpty(godotSharp))
 			return false;
+		
+		List<ITaskItem> emittedFiles = [];
 
 		string newHash = Common.ComputeHash(IntermediateAssembly.ItemSpec, defaultConfig);
 
 		string outputFile = Path.Combine(intermediateDir, Path.GetFileName(IntermediateAssembly.ItemSpec));
 		string hashFile = outputFile + ".hash.cache";
 		string warningsFile = outputFile + ".warnings.cache";
+		string pdbFile = Path.ChangeExtension(outputFile, ".pdb");
 
 		CachedIntermediateAssembly = IntermediateAssembly.CloneWithNewItemSpec(outputFile);
+		emittedFiles.Add(CachedIntermediateAssembly);
+		emittedFiles.Add(new TaskItem(hashFile));
 
-		if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
+		if (File.Exists(outputFile) && File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
 			log.LogMessage($"Main assembly up to date");
 
 			if (File.Exists(warningsFile))
 			{
 				Common.OutputCachedWarnings(warningsFile, log);
+				emittedFiles.Add(new TaskItem(warningsFile));
 			}
+
+			if (File.Exists(pdbFile))
+			{
+				emittedFiles.Add(new TaskItem(pdbFile));
+			}
+
+			EmittedFiles = emittedFiles.ToArray();
 
 			return true;
 		}
@@ -71,14 +88,19 @@ public class GDStringMainAssemblyCacheTask : Task
 		}
 
 		// Depending on the build configuration, the output pdb file may not exist.
-		string potentialPdbFilePath = Path.ChangeExtension(outputFile, ".pdb");
-		if (File.Exists(potentialPdbFilePath))
+		if (File.Exists(pdbFile))
 		{
-			OutputPdbFile = potentialPdbFilePath;
+			OutputPdbFile = pdbFile;
+			emittedFiles.Add(new TaskItem(OutputPdbFile));
 		}
 
 		File.WriteAllText(hashFile, newHash);
-		Common.CacheLoggerWarnings(warningsFile, log);
+		if (Common.CacheLoggerWarnings(warningsFile, log))
+		{
+			emittedFiles.Add(new TaskItem(warningsFile));
+		}
+
+		EmittedFiles = emittedFiles.ToArray();
 
 		return true;
 	}

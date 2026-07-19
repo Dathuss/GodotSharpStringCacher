@@ -15,7 +15,6 @@
     <!-- Use long variable names that look like the literal string value -->
     <!-- This value can be overriden at the declaration level -->
     <GDStringUseLongNames Condition="'$(GDStringUseLongNames)' == ''">false</GDStringUseLongNames>
-
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
@@ -52,6 +51,7 @@
       <Output TaskParameter="AddedReferencePath" ItemName="_AddedReferencePath" />
       <Output TaskParameter="RemovedReferenceCopyLocalPaths" ItemName="_RemovedReferenceCopyLocalPaths" />
       <Output TaskParameter="AddedReferenceCopyLocalPaths" ItemName="_AddedReferenceCopyLocalPaths" />
+      <Output TaskParameter="EmittedFiles" ItemName="FileWrites" />
     </GDStringDependencyCacheTask>
 
     <ItemGroup>
@@ -85,7 +85,7 @@
     >
       <Output TaskParameter="CachedIntermediateAssembly" ItemName="_CachedIntermediateAssembly" />
       <Output TaskParameter="OutputPdbFile" ItemName="_OutputPdbFile" />
-
+      <Output TaskParameter="EmittedFiles" ItemName="FileWrites" />
     </GDStringMainAssemblyCacheTask>
 
     <ItemGroup>
@@ -98,35 +98,24 @@
         <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       </ResolvedFileToPublish>
     </ItemGroup>
-  </Target>
 
-  <!--
-    ======================================================
-                    CopyMainAssemblySymbols
-    Runs after CopyFilesToOutputDirectory.
-    Copies the symbols (pdb) file, because as said before, it cannot be reinjected into
-    the SDK's build flow.
-    ======================================================
-  -->
-  <Target Name="CopyMainAssemblySymbols" AfterTargets="CopyFilesToOutputDirectory" >
     <!--
       Most of these parameters are copied from the sdk file, because we want to maintain
       something as close as the normal build as possible.
     -->
     <Copy
       SourceFiles="@(_OutputPdbFile)"
-      DestinationFiles="@(MainAssembly->'%(RootDir)%(Directory)%(Filename).pdb')"
+      DestinationFiles="@(IntermediateAssembly->'$(OutDir)%(Filename).pdb')"
       SkipUnchangedFiles="$(SkipCopyUnchangedFiles)"
       OverwriteReadOnlyFiles="$(OverwriteReadOnlyFiles)"
       Retries="$(CopyRetryCount)"
       RetryDelayMilliseconds="$(CopyRetryDelayMilliseconds)"
       UseHardlinksIfPossible="$(CreateHardLinksForCopyFilesToOutputDirectoryIfPossible)"
       UseSymboliclinksIfPossible="$(CreateSymbolicLinksForCopyFilesToOutputDirectoryIfPossible)"
-      ErrorIfLinkFails="$(ErrorIfLinkFailsForCopyFilesToOutputDirectory)" />
-  </Target>
-
-  <Target Name="CleanCachedStringAssemblies" AfterTargets="CoreClean">
-    <RemoveDir Condition="'$(IntermediateOutputPath)' != ''" Directories="$(IntermediateOutputPath)string-cache" />
+      ErrorIfLinkFails="$(ErrorIfLinkFailsForCopyFilesToOutputDirectory)"
+    >
+      <Output TaskParameter="DestinationFiles" ItemName="FileWrites" />
+    </Copy>
   </Target>
 
   <ItemDefinitionGroup>

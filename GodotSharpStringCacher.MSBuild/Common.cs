@@ -125,15 +125,13 @@ internal static class Common
 		return copy;
 	}
 
-	public static void CacheLoggerWarnings(string warningsFile, Logger log)
+	public static bool CacheLoggerWarnings(string warningsFile, Logger log)
 	{
 		try
 		{
 			if (log.Warnings.Count == 0)
 			{
-				// Removes the file if it was there previously (otherwise older warnings will appear)
-				File.Delete(warningsFile);
-				return;
+				return false;
 			}
 			using FileStream fs = File.Create(warningsFile);
 			JsonHelper.Serialize(log.Warnings.ToArray(), fs);
@@ -141,7 +139,9 @@ internal static class Common
 		catch
 		{
 			log.LogWarning("Failed to update warnings file");
+			return false;
 		}
+		return true;
 	}
 
 	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)
