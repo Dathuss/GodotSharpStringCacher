@@ -103,15 +103,13 @@ public class GDStringDependencyCacheTask : Task
 				// Replace ReferencePath and ReferenceCopyLocalPaths to the cached path
 				removedReferencePath.Add(reference);
 
-				TaskItem cachedReference = new(outputFile);
-				reference.CopyMetadataTo(cachedReference);
+				TaskItem cachedReference = reference.CloneWithNewItemSpec(outputFile);
 				addedReferencePath.Add(cachedReference);
 
 				ITaskItem referenceOfReferenceCopyLocalPaths = ReferenceCopyLocalPaths.First(x => x.GetMetadata("FileName") == fileName && x.GetMetadata("Extension") == ".dll");
 				removedReferenceCopyLocalPaths.Add(referenceOfReferenceCopyLocalPaths);
 
-				TaskItem cachedReferenceForCopy = new(outputFile);
-				referenceOfReferenceCopyLocalPaths.CopyMetadataTo(cachedReferenceForCopy);
+				TaskItem cachedReferenceForCopy = referenceOfReferenceCopyLocalPaths.CloneWithNewItemSpec(outputFile);
 				addedReferenceCopyLocalPaths.Add(cachedReferenceForCopy);
 
 				// Try to replace symbol file of ReferenceCopyLocalPaths
@@ -121,8 +119,7 @@ public class GDStringDependencyCacheTask : Task
 				{
 					removedReferenceCopyLocalPaths.Add(pdbOfReferenceCopyLocalPaths);
 
-					TaskItem cachedPdbForCopy = new(potentialPdbFilePath);
-					pdbOfReferenceCopyLocalPaths.CopyMetadataTo(cachedPdbForCopy);
+					TaskItem cachedPdbForCopy = pdbOfReferenceCopyLocalPaths.CloneWithNewItemSpec(potentialPdbFilePath);
 					addedReferenceCopyLocalPaths.Add(cachedPdbForCopy);
 				}
 

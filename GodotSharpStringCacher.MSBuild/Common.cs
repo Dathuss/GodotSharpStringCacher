@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
 
 namespace GodotSharpStringCacher.MSBuild;
 
@@ -115,6 +116,13 @@ internal static class Common
 	public static bool GetBoolMetadata(this ITaskItem taskItem, string name)
 	{
 		return taskItem.GetMetadata(name).Equals("true", StringComparison.OrdinalIgnoreCase);
+	}
+
+	public static TaskItem CloneWithNewItemSpec(this ITaskItem originTaskItem, string itemSpec)
+	{
+		TaskItem copy = new(itemSpec);
+		originTaskItem.CopyMetadataTo(copy);
+		return copy;
 	}
 
 	public static void CacheLoggerWarnings(string warningsFile, Logger log)

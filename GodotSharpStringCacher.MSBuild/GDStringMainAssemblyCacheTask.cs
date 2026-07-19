@@ -48,9 +48,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		string hashFile = outputFile + ".hash.cache";
 		string warningsFile = outputFile + ".warnings.cache";
 
-		TaskItem cachedIntermediateAssemblyTaskItem = new(outputFile);
-		IntermediateAssembly.CopyMetadataTo(cachedIntermediateAssemblyTaskItem);
-		CachedIntermediateAssembly = cachedIntermediateAssemblyTaskItem;
+		CachedIntermediateAssembly = IntermediateAssembly.CloneWithNewItemSpec(outputFile);
 
 		if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
