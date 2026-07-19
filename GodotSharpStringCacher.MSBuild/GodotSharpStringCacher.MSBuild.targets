@@ -16,12 +16,27 @@
     <!-- This value can be overriden at the declaration level -->
     <GDStringUseLongNames Condition="'$(GDStringUseLongNames)' == ''">false</GDStringUseLongNames>
 
-    <!-- We will manually copy the symbol file, since it has to be rebuilt by Cecil -->
-    <!-- And unlike ReferencePath or IntermediateAssembly, we cannot inject a custom path into the normal build flow -->
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
+    <!--
+      The main assembly's symbols file (aka pdb file) has to be rebuilt by Cecil.
+      Unfortunately, for this specific file, we cannot reinject it into the normal build flow,
+      so we will copy it by hand
+    -->
     <SkipCopyingSymbolsToOutputDirectory>true</SkipCopyingSymbolsToOutputDirectory>
     <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
 
+  <!--
+    ======================================================
+                    CacheDependenciesStrings
+    Runs after ResolveAssemblyReferences.
+    Will patch dependency assemblies marked with CacheStrings, and their associated symbols file, if exists.
+    The patched files will be cached in the intermediate folder, and SDK Items that track dependencies
+    will get redirected to the new paths. This way, the build flow can seamlessly continue.
+    ======================================================
+  -->
   <Target Name="CacheDependenciesStrings" AfterTargets="ResolveAssemblyReferences" >
     <GDStringDependencyCacheTask
       IntermediateOutputPath="$(IntermediateOutputPath)" 
@@ -48,6 +63,16 @@
     </ItemGroup>
   </Target>
 
+  <!--
+    ======================================================
+                    CacheMainAssemblyStrings
+    Runs before CopyFilesToOutputDirectory.
+    Will patch the main assembly and its associated symbols file, if exists.
+    The dll will be cached in the intermediate folder, and SDK Items that track it
+    will get redirected to the new path. This way, the build flow can seamlessly continue.
+    Unfortunately, we cannot do this for the pdb file, which we will have to copy by hand.
+    ======================================================
+  -->
   <Target Name="CacheMainAssemblyStrings" BeforeTargets="CopyFilesToOutputDirectory" Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
     <GDStringMainAssemblyCacheTask
       AssemblyName="$(AssemblyName)"
@@ -75,7 +100,19 @@
     </ItemGroup>
   </Target>
 
+  <!--
+    ======================================================
+                    CopyMainAssemblySymbols
+    Runs after CopyFilesToOutputDirectory.
+    Copies the symbols (pdb) file, because as said before, it cannot be reinjected into
+    the SDK's build flow.
+    ======================================================
+  -->
   <Target Name="CopyMainAssemblySymbols" AfterTargets="CopyFilesToOutputDirectory" >
+    <!--
+      Most of these parameters are copied from the sdk file, because we want to maintain
+      something as close as the normal build as possible.
+    -->
     <Copy
       SourceFiles="@(_OutputPdbFile)"
       DestinationFiles="@(MainAssembly->'%(RootDir)%(Directory)%(Filename).pdb')"
