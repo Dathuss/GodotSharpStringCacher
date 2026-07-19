@@ -104,7 +104,7 @@ public class GDStringDependencyCacheTask : Task
 				string outputFile = Path.Combine(intermediateDir, Path.GetFileName(fullPath));
 				string hashFile = outputFile + ".hash.cache";
 				string warningsFile = outputFile + ".warnings.cache";
-				string pdbFile = Path.ChangeExtension(outputFile, ".pdb");
+				string pdbFile = Context.GetPdbFileName(outputFile);
 
 				// Replace ReferencePath and ReferenceCopyLocalPaths to the cached path
 				removedReferencePath.Add(reference);
@@ -150,9 +150,16 @@ public class GDStringDependencyCacheTask : Task
 					continue;
 				}
 
-				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, log))
+				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, log, out bool isPdbFileOutputted))
 				{
 					return false;
+				}
+
+				if (pdbOfReferenceCopyLocalPaths != null && !isPdbFileOutputted)
+				{
+					// Unlikely to happen, but it's better to record it
+					Log.LogWarning($"Dependency {fileName} was supposed to output a pdb file when patched, but it didn't. This shouldn't happen.");
+					emittedFiles.RemoveAll(x => x.ItemSpec == pdbFile);
 				}
 
 				File.WriteAllText(hashFile, newHash);

@@ -53,7 +53,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		string outputFile = Path.Combine(intermediateDir, Path.GetFileName(IntermediateAssembly.ItemSpec));
 		string hashFile = outputFile + ".hash.cache";
 		string warningsFile = outputFile + ".warnings.cache";
-		string pdbFile = Path.ChangeExtension(outputFile, ".pdb");
+		string pdbFile = Context.GetPdbFileName(outputFile);
 
 		CachedIntermediateAssembly = IntermediateAssembly.CloneWithNewItemSpec(outputFile);
 		emittedFiles.Add(CachedIntermediateAssembly);
@@ -82,13 +82,13 @@ public class GDStringMainAssemblyCacheTask : Task
 		using Context ctx = new(defaultConfig);
 
 		ctx.OpenGodotSharp(godotSharp);
-		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, log))
+		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, log, out bool isPdbFileOutputted))
 		{
 			return false;
 		}
 
 		// Depending on the build configuration, the output pdb file may not exist.
-		if (File.Exists(pdbFile))
+		if (isPdbFileOutputted)
 		{
 			OutputPdbFile = pdbFile;
 			emittedFiles.Add(new TaskItem(OutputPdbFile));

@@ -29,12 +29,15 @@ internal static class Common
 		return null;
 	}
 
-	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log)
+	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log, out bool isPdbFileOutputted)
 	{
+		isPdbFileOutputted = false;
 		log.LogMessage($"{assemblyName}: Caching Godot strings...");
 		try
 		{
-			ctx.RunAndSave(inputPath, outputPath);
+			string outputPdbFile;
+			ctx.RunAndSave(inputPath, outputPath, out outputPdbFile);
+			isPdbFileOutputted = outputPdbFile != null;
 			log.LogMessage($"{assemblyName}: StringNames cached: {ctx.NumberOfStringNamesWritten}");
 			log.LogMessage($"{assemblyName}: NodePaths cached: {ctx.NumberOfNodePathsWritten}");
 		}
