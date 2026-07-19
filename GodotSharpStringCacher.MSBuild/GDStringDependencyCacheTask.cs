@@ -114,6 +114,18 @@ public class GDStringDependencyCacheTask : Task
 				referenceOfReferenceCopyLocalPaths.CopyMetadataTo(cachedReferenceForCopy);
 				addedReferenceCopyLocalPaths.Add(cachedReferenceForCopy);
 
+				// Try to replace symbol file of ReferenceCopyLocalPaths
+				string potentialPdbFilePath = Path.ChangeExtension(outputFile, ".pdb");
+				ITaskItem pdbOfReferenceCopyLocalPaths = ReferenceCopyLocalPaths.FirstOrDefault(x => x.GetMetadata("FileName") == fileName && x.GetMetadata("Extension") == ".pdb");
+				if (File.Exists(potentialPdbFilePath) && pdbOfReferenceCopyLocalPaths != null)
+				{
+					removedReferenceCopyLocalPaths.Add(pdbOfReferenceCopyLocalPaths);
+
+					TaskItem cachedPdbForCopy = new(potentialPdbFilePath);
+					pdbOfReferenceCopyLocalPaths.CopyMetadataTo(cachedPdbForCopy);
+					addedReferenceCopyLocalPaths.Add(cachedPdbForCopy);
+				}
+
 				if (File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 				{
 					log.LogMessage($"Assembly {fileName} up to date");
