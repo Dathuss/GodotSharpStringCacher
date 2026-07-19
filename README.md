@@ -39,7 +39,7 @@ If you want it to affect other packages, use
 `GodotSharpStringCacher` is also available as a library. Integrate it into other builds like this:
 
 ```xml
-<PackageReference Include="GodotSharpStringCacher" Version="1.1.0" />
+<PackageReference Include="GodotSharpStringCacher" Version="1.2.0" />
 ```
 Then:
 ```csharp
