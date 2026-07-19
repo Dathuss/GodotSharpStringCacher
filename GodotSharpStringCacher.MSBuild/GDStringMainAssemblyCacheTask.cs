@@ -7,6 +7,7 @@ namespace GodotSharpStringCacher.MSBuild;
 
 public class GDStringMainAssemblyCacheTask : Task
 {
+#nullable disable // MSBuild arguments are not nullable
 	[Required]
 	public string AssemblyName { get; set; }
 
@@ -35,6 +36,7 @@ public class GDStringMainAssemblyCacheTask : Task
 
 	[Output]
 	public ITaskItem[] EmittedFiles { get; set; }
+#nullable restore
 
 	public override bool Execute()
 	{
@@ -42,7 +44,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		Logger log = new(this);
 		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 
-		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
+		string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 		if (string.IsNullOrEmpty(godotSharp))
 			return false;
 		
@@ -81,7 +83,7 @@ public class GDStringMainAssemblyCacheTask : Task
 
 		using Context ctx = new(defaultConfig);
 
-		ctx.OpenGodotSharp(godotSharp);
+		ctx.OpenGodotSharp(godotSharp!);
 		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, log, out bool isPdbFileOutputted))
 		{
 			return false;
