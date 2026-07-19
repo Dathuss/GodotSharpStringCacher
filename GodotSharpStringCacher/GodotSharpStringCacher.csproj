@@ -2,16 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-	<LangVersion>14</LangVersion>
+    <LangVersion>14</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
-	<Nullable>enable</Nullable>
+    <Nullable>enable</Nullable>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-	<PackageId>GodotSharpStringCacher</PackageId>
-	<Description>
-		Library to cache Godot Mono/C# StringName and NodePath without changing the source code.
-	</Description>
+    <PackageId>GodotSharpStringCacher</PackageId>
+    <Description>
+        Library to cache Godot Mono/C# StringName and NodePath without changing the source code.
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
