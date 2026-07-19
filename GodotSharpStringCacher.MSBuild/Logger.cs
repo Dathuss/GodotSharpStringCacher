@@ -52,7 +52,7 @@ public class Logger(Task task) : LoggerBase
 	[DataContract]
 	public readonly record struct SerializedWarningLog(
 		[property: DataMember] string Message,
-		[property: DataMember] string File,
+		[property: DataMember] string? File,
 		[property: DataMember] int Line,
 		[property: DataMember] int Column,
 		[property: DataMember] int EndLine,

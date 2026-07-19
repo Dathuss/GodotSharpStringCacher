@@ -11,6 +11,7 @@ namespace GodotSharpStringCacher.MSBuild;
 /// </summary>
 public class GDStringDependencyCacheTask : Task
 {
+#nullable disable // MSBuild arguments are not nullable
 	[Required]
 	public string IntermediateOutputPath { get; set; }
 
@@ -48,6 +49,7 @@ public class GDStringDependencyCacheTask : Task
 
 	[Output]
 	public ITaskItem[] EmittedFiles { get; set; }
+#nullable restore
 
 	public override bool Execute()
 	{
@@ -64,7 +66,7 @@ public class GDStringDependencyCacheTask : Task
 
 		List<ITaskItem> emittedFiles = [];
 
-		Context ctx = null;
+		Context? ctx = null;
 
 		try
 		{
@@ -79,7 +81,7 @@ public class GDStringDependencyCacheTask : Task
 				// Checks for <ProjectReference> and <Reference>
 				if (reference.GetBoolMetadata("CacheStrings")) { assemblyTaskItem = reference; }
 				// Checks for <PackageReference>
-				else if (reference.TryGetMetadata("NuGetPackageId", out string nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId, out assemblyTaskItem)) { }
+				else if (reference.TryGetMetadata("NuGetPackageId", out string? nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId!, out assemblyTaskItem)) { }
 				// Checks for <CacheStrings>
 				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
 				else continue;
@@ -88,12 +90,12 @@ public class GDStringDependencyCacheTask : Task
 				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 				if (ctx == null)
 				{
-					string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
+					string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 					if (string.IsNullOrEmpty(godotSharp))
 						return false;
 
 					ctx = new Context(defaultConfig);
-					ctx.OpenGodotSharp(godotSharp);
+					ctx.OpenGodotSharp(godotSharp!);
 				}
 
 				ctx.Config = ParseConfig(assemblyTaskItem, defaultConfig);
