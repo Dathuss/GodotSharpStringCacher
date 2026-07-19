@@ -51,7 +51,8 @@ using var ctx = new Context(config: new Config(...));
 // (optional) open GodotSharp manually (otherwise it will be loaded if present in the same directory as the patching dll)
 ctx.OpenGodotSharp("/foo/GodotSharp.dll");
 ctx.RunAndSave("input.dll", "output.dll");
-ctx.RunAndSave("input2.dll", "output2.dll");
+// A PDB file may be emitted. If you need to check if it was created or want to access it, use the optional out parameter
+ctx.RunAndSave("input2.dll", "output2.dll", out string? outputPdbFile);
 ```
 
 # Quick Testing

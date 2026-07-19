@@ -34,7 +34,7 @@ public class Context : IDisposable
 	public int NumberOfStringNamesWritten { get; set; }
 	public int NumberOfNodePathsWritten { get; set; }
 
-	public void RunAndSave(string inputFile, string outputFile)
+	public void RunAndSave(string inputFile, string outputFile, out string? outputPdbFile)
 	{
 		FileName = inputFile;
 
@@ -45,6 +45,7 @@ public class Context : IDisposable
 		resolver.AddSearchDirectory(directory);
 
 		string tempDirectory, tempOutputFile;
+		outputPdbFile = null;
 
 		Module = ModuleDefinition.ReadModule(FileName, new ReaderParameters()
 		{
@@ -102,12 +103,12 @@ public class Context : IDisposable
 				Module.Write(tempOutputFile, writerParameters);
 
 				// Check if optional PDB was also written
-				string cecilOutputPdb = Path.ChangeExtension(tempOutputFile, ".pdb");
+				string cecilOutputPdb = GetPdbFileName(tempOutputFile);
 				if (File.Exists(cecilOutputPdb))
 				{
 					// Move the optional PDB to the directory where the DLL will be moved to
-					string outputPdb = Path.ChangeExtension(outputFile, ".pdb");
-					MoveFileWithOverwrite(cecilOutputPdb, outputPdb);
+					outputPdbFile = GetPdbFileName(outputFile);
+					MoveFileWithOverwrite(cecilOutputPdb, outputPdbFile);
 				}
 			}
 			else
@@ -119,6 +120,11 @@ public class Context : IDisposable
 
 		MoveFileWithOverwrite(tempOutputFile, outputFile);
 		Directory.Delete(tempDirectory, recursive: true); // Directory should be empty, but delete recursively just to make sure
+	}
+
+	public void RunAndSave(string inputFile, string outputFile)
+	{
+		RunAndSave(inputFile, outputFile, out _);
 	}
 
 	static void MoveFileWithOverwrite(string sourceFile, string destFile)
@@ -139,6 +145,11 @@ public class Context : IDisposable
 
 		Directory.CreateDirectory(result);
 		return result;
+	}
+
+	public static string GetPdbFileName(string assemblyFileName)
+	{
+		return Path.ChangeExtension(assemblyFileName, ".pdb");
 	}
 
 	/// <summary>
