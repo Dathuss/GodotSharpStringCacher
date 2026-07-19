@@ -87,7 +87,7 @@ public class GDStringMainAssemblyCacheTask : Task
 			return false;
 		}
 
-		// Depending on the build configuration, the output pdb file may not exist.
+		// Depending on the build configuration, the output PDB file may not exist.
 		if (isPdbFileOutputted)
 		{
 			OutputPdbFile = pdbFile;

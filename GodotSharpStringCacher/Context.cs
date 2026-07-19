@@ -85,7 +85,7 @@ public class Context : IDisposable
 			// So we write it to a temp file first.
 
 			// However, if a PDB file has to be emitted, it will be written relative to this temporary file too.
-			// For example: for `tmp.qwerty.dll`, a pdb file named `tmp.qwerty.pdb` would be written.
+			// For example: for `tmp.qwerty.dll`, a PDB file named `tmp.qwerty.pdb` would be written.
 			// A managed assembly holds the name of its associated PDB file, and in release builds,
 			// this is the only file that the runtime will attempt to read.
 			// This means we have to give the temporary file the same name as the output file,

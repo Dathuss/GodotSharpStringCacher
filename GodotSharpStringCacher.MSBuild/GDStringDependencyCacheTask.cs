@@ -158,7 +158,7 @@ public class GDStringDependencyCacheTask : Task
 				if (pdbOfReferenceCopyLocalPaths != null && !isPdbFileOutputted)
 				{
 					// Unlikely to happen, but it's better to record it
-					Log.LogWarning($"Dependency {fileName} was supposed to output a pdb file when patched, but it didn't. This shouldn't happen.");
+					Log.LogWarning($"Dependency {fileName} was supposed to output a PDB file when patched, but it didn't. This shouldn't happen.");
 					emittedFiles.RemoveAll(x => x.ItemSpec == pdbFile);
 				}
 

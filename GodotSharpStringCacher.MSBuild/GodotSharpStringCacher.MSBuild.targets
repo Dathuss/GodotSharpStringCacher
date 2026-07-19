@@ -19,7 +19,7 @@
 
   <PropertyGroup Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
     <!--
-      The main assembly's symbols file (aka pdb file) has to be rebuilt by Cecil.
+      The main assembly's symbols file (aka PDB file) has to be rebuilt by Cecil.
       Unfortunately, for this specific file, we cannot reinject it into the normal build flow,
       so we will copy it by hand
     -->
@@ -68,9 +68,9 @@
                     CacheMainAssemblyStrings
     Runs before CopyFilesToOutputDirectory.
     Will patch the main assembly and its associated symbols file, if exists.
-    The dll will be cached in the intermediate folder, and SDK Items that track it
+    The DLL will be cached in the intermediate folder, and SDK Items that track it
     will get redirected to the new path. This way, the build flow can seamlessly continue.
-    Unfortunately, we cannot do this for the pdb file, which we will have to copy by hand.
+    Unfortunately, we cannot do this for the PDB file, which we will have to copy by hand.
     ======================================================
   -->
   <Target Name="CacheMainAssemblyStrings" BeforeTargets="CopyFilesToOutputDirectory" Condition="'$(GDStringCacheMainAssemblyStrings)' == 'true'">
