@@ -8,33 +8,33 @@ namespace GodotSharpStringCacher.MSBuild;
 public class GDStringMainAssemblyCacheTask : Task
 {
 	[Required]
-	public string AssemblyName { get; set; }
+	public string AssemblyName { get; set; } = null!;
 
 	[Required]
-	public ITaskItem IntermediateAssembly { get; set; }
+	public ITaskItem IntermediateAssembly { get; set; } = null!;
 
 	[Required]
-	public ITaskItem[] ReferencePath { get; set; }
+	public ITaskItem[] ReferencePath { get; set; } = null!;
 
 	[Required]
-	public string IntermediateOutputPath { get; set; }
+	public string IntermediateOutputPath { get; set; } = null!;
 
 
 	[Required]
-	public bool WarnOnNonConstantImplicitOperator { get; set; }
+	public bool WarnOnNonConstantImplicitOperator { get; set; } = false;
 
 	[Required]
-	public bool UseLongNamesByDefault { get; set; }
+	public bool UseLongNamesByDefault { get; set; } = false;
 
 
 	[Output]
-	public ITaskItem CachedIntermediateAssembly { get; set; }
+	public ITaskItem CachedIntermediateAssembly { get; set; } = null!;
 
 	[Output]
-	public string OutputPdbFile { get; set; }
+	public string OutputPdbFile { get; set; } = null!;
 
 	[Output]
-	public ITaskItem[] EmittedFiles { get; set; }
+	public ITaskItem[] EmittedFiles { get; set; } = null!;
 
 	public override bool Execute()
 	{
@@ -42,7 +42,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		Logger log = new(this);
 		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 
-		string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
+		string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 		if (string.IsNullOrEmpty(godotSharp))
 			return false;
 		
@@ -81,7 +81,7 @@ public class GDStringMainAssemblyCacheTask : Task
 
 		using Context ctx = new(defaultConfig);
 
-		ctx.OpenGodotSharp(godotSharp);
+		ctx.OpenGodotSharp(godotSharp!);
 		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, log, out bool isPdbFileOutputted))
 		{
 			return false;

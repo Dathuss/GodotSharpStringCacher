@@ -12,42 +12,42 @@ namespace GodotSharpStringCacher.MSBuild;
 public class GDStringDependencyCacheTask : Task
 {
 	[Required]
-	public string IntermediateOutputPath { get; set; }
+	public string IntermediateOutputPath { get; set; } = null!;
 
 	[Required]
-	public ITaskItem[] ReferencePath { get; set; }
+	public ITaskItem[] ReferencePath { get; set; } = null!;
 
 	[Required]
-	public ITaskItem[] ReferenceCopyLocalPaths { get; set; }
+	public ITaskItem[] ReferenceCopyLocalPaths { get; set; } = null!;
 
 	[Required]
-	public ITaskItem[] PackageReference { get; set; }
+	public ITaskItem[] PackageReference { get; set; } = null!;
 
 
 	[Required]
-	public ITaskItem[] CacheStrings { get; set; }
+	public ITaskItem[] CacheStrings { get; set; } = null!;
 
 	[Required]
-	public bool WarnOnNonConstantImplicitOperator { get; set; }
+	public bool WarnOnNonConstantImplicitOperator { get; set; } = false;
 
 	[Required]
-	public bool UseLongNamesByDefault { get; set; }
+	public bool UseLongNamesByDefault { get; set; } = false;
 
 	
 	[Output]
-	public ITaskItem[] RemovedReferencePath { get; set; }
+	public ITaskItem[] RemovedReferencePath { get; set; } = null!;
 
 	[Output]
-	public ITaskItem[] AddedReferencePath { get; set; }
+	public ITaskItem[] AddedReferencePath { get; set; } = null!;
 
 	[Output]
-	public ITaskItem[] RemovedReferenceCopyLocalPaths { get; set; }
+	public ITaskItem[] RemovedReferenceCopyLocalPaths { get; set; } = null!;
 
 	[Output]
-	public ITaskItem[] AddedReferenceCopyLocalPaths { get; set; }
+	public ITaskItem[] AddedReferenceCopyLocalPaths { get; set; } = null!;
 
 	[Output]
-	public ITaskItem[] EmittedFiles { get; set; }
+	public ITaskItem[] EmittedFiles { get; set; } = null!;
 
 	public override bool Execute()
 	{
@@ -64,7 +64,7 @@ public class GDStringDependencyCacheTask : Task
 
 		List<ITaskItem> emittedFiles = [];
 
-		Context ctx = null;
+		Context? ctx = null;
 
 		try
 		{
@@ -79,7 +79,7 @@ public class GDStringDependencyCacheTask : Task
 				// Checks for <ProjectReference> and <Reference>
 				if (reference.GetBoolMetadata("CacheStrings")) { assemblyTaskItem = reference; }
 				// Checks for <PackageReference>
-				else if (reference.TryGetMetadata("NuGetPackageId", out string nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId, out assemblyTaskItem)) { }
+				else if (reference.TryGetMetadata("NuGetPackageId", out string? nuGetPackageId) && packagesToPatch.TryGetValue(nuGetPackageId!, out assemblyTaskItem)) { }
 				// Checks for <CacheStrings>
 				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
 				else continue;
@@ -88,12 +88,12 @@ public class GDStringDependencyCacheTask : Task
 				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
 				if (ctx == null)
 				{
-					string godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
+					string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 					if (string.IsNullOrEmpty(godotSharp))
 						return false;
 
 					ctx = new Context(defaultConfig);
-					ctx.OpenGodotSharp(godotSharp);
+					ctx.OpenGodotSharp(godotSharp!);
 				}
 
 				ctx.Config = ParseConfig(assemblyTaskItem, defaultConfig);
