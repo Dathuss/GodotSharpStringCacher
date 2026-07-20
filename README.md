@@ -20,7 +20,7 @@ There are several proposals to circumvent this issue, but this one is "plug 'n' 
 
 Include the package in your csproj file with
 ```xml
-<PackageReference Include="GodotSharpStringCacher.MSBuild" PrivateAssets="all" Version="1.1.0" />
+<PackageReference Include="GodotSharpStringCacher.MSBuild" PrivateAssets="all" Version="1.2.1" />
 ```
 
 That's it ! The main assembly is now automatically patched.  
@@ -39,7 +39,7 @@ If you want it to affect other packages, use
 `GodotSharpStringCacher` is also available as a library. Integrate it into other builds like this:
 
 ```xml
-<PackageReference Include="GodotSharpStringCacher" Version="1.2.0" />
+<PackageReference Include="GodotSharpStringCacher" Version="1.2.1" />
 ```
 Then:
 ```csharp
