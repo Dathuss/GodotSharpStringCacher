@@ -5,8 +5,8 @@ namespace GodotSharpStringCacher;
 
 internal class CacheTypesEmitter(Context ctx)
 {
-	public const string STRING_NAME_CACHE_TYPE_NAME = "?_StringNameCache";
-	public const string NODE_PATH_CACHE_TYPE_NAME = "?_NodePathCache";
+	public const string STRING_NAME_CACHE_TYPE_NAME_PREFIX = "?_StringNameCache_";
+	public const string NODE_PATH_CACHE_TYPE_NAME_PREFIX = "?_NodePathCache_";
 
 	internal readonly Dictionary<string, FieldDefinition> StringNamesToCache = [];
 	internal readonly Dictionary<string, FieldDefinition> NodePathsToCache = [];
@@ -88,11 +88,18 @@ internal class CacheTypesEmitter(Context ctx)
 			return type;
 		}
 
+		// We emit a name unique to the assembly, in the rare case the user recompiles the library
+		// with an assembly merger like ILRepack, to avoid type name conflicts
+		string assemblyName = Path.GetFileNameWithoutExtension(ctx.Module.Name);
 		if (StringNamesToCache.Count != 0)
-			EmitType(STRING_NAME_CACHE_TYPE_NAME, StringNamesToCache, ctx.Imported_StringName_StringCtor);
+		{
+			EmitType($"{STRING_NAME_CACHE_TYPE_NAME_PREFIX}{assemblyName}", StringNamesToCache, ctx.Imported_StringName_StringCtor);
+		}
 
 		if (NodePathsToCache.Count != 0)
-			EmitType(NODE_PATH_CACHE_TYPE_NAME, NodePathsToCache, ctx.Imported_NodePath_StringCtor);
+		{
+			EmitType($"{NODE_PATH_CACHE_TYPE_NAME_PREFIX}{assemblyName}", NodePathsToCache, ctx.Imported_NodePath_StringCtor);
+		}
 	}
 	
 	/// <summary>
