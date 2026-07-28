@@ -27,11 +27,13 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
     <ProjectReference Include="..\GodotSharpStringCacher\GodotSharpStringCacher.csproj" />
+    <ProjectReference Include="..\GodotSharpStringCacher.Analyzers\GodotSharpStringCacher.Analyzers.csproj" ExcludeAssets="analyzers;compile" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="$(MSBuildProjectName).targets" Pack="true" PackagePath="build" />
     <Content Include="$(OutputPath)GodotSharpStringCacher.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />
+    <Content Include="$(OutputPath)GodotSharpStringCacher.Analyzers.dll" Pack="true" PackagePath="analyzers/dotnet/cs" />
 
     <Content Include="$(OutputPath)Mono.Cecil.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />
     <Content Include="$(OutputPath)Mono.Cecil.Mdb.dll" Pack="true" PackagePath="tasks/$(TargetFramework)" />

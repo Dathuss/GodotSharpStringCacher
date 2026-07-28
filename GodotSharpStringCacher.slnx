@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="GodotSharpStringCacher/GodotSharpStringCacher.csproj" />
+  <Project Path="GodotSharpStringCacher.Analyzers/GodotSharpStringCacher.Analyzers.csproj" />
+  <Project Path="GodotSharpStringCacher.Console/GodotSharpStringCacher.Console.csproj" />
+  <Project Path="GodotSharpStringCacher.MSBuild/GodotSharpStringCacher.MSBuild.csproj" />
+</Solution>

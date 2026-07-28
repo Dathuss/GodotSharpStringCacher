@@ -29,9 +29,6 @@ public class GDStringDependencyCacheTask : Task
 	public ITaskItem[] CacheStrings { get; set; }
 
 	[Required]
-	public bool WarnOnNonConstantImplicitOperator { get; set; }
-
-	[Required]
 	public bool UseLongNamesByDefault { get; set; }
 
 	
@@ -87,7 +84,7 @@ public class GDStringDependencyCacheTask : Task
 				else continue;
 
 				Logger log = new(this);
-				Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
+				Config defaultConfig = new(UseLongNamesByDefault, false, log);
 				if (ctx == null)
 				{
 					string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
@@ -105,7 +102,6 @@ public class GDStringDependencyCacheTask : Task
 
 				string outputFile = Path.Combine(intermediateDir, Path.GetFileName(fullPath));
 				string hashFile = outputFile + ".hash.cache";
-				string warningsFile = outputFile + ".warnings.cache";
 				string pdbFile = Context.GetPdbFileName(outputFile);
 
 				// Replace ReferencePath and ReferenceCopyLocalPaths to the cached path
@@ -138,12 +134,6 @@ public class GDStringDependencyCacheTask : Task
 				{
 					log.LogMessage($"Assembly {fileName} up to date");
 
-					if (File.Exists(warningsFile))
-					{
-						Common.OutputCachedWarnings(warningsFile, log);
-						emittedFiles.Add(new TaskItem(warningsFile));
-					}
-
 					if (File.Exists(pdbFile))
 					{
 						emittedFiles.Add(new TaskItem(pdbFile));
@@ -165,10 +155,6 @@ public class GDStringDependencyCacheTask : Task
 				}
 
 				File.WriteAllText(hashFile, newHash);
-				if (Common.CacheLoggerWarnings(warningsFile, log))
-				{
-					emittedFiles.Add(new TaskItem(warningsFile));
-				}
 			}
 		}
 		finally
@@ -196,7 +182,7 @@ public class GDStringDependencyCacheTask : Task
 
 		return new Config(
 			GetBool("LongNames", defaultConfig.UseLongNames),
-			GetBool("WarnOnNonConstantImplicitOperator", defaultConfig.WarnOnNonConstantImplicitOperator),
+			false,
 			defaultConfig.Logger);
 	}
 }

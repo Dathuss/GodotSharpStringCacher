@@ -94,7 +94,6 @@ internal static class Common
 		HashString(typeof(Context).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion);
 
 		HashBool(config.UseLongNames);
-		HashBool(config.WarnOnNonConstantImplicitOperator);
 
 		HashLong(File.GetLastWriteTimeUtc(inputFile).ToBinary(),
 			isFinalBlock: true);
@@ -125,47 +124,5 @@ internal static class Common
 		TaskItem copy = new(itemSpec);
 		originTaskItem.CopyMetadataTo(copy);
 		return copy;
-	}
-
-	public static bool CacheLoggerWarnings(string warningsFile, Logger log)
-	{
-		try
-		{
-			if (log.Warnings.Count == 0)
-			{
-				return false;
-			}
-			using FileStream fs = File.Create(warningsFile);
-			JsonHelper.Serialize(log.Warnings.ToArray(), fs);
-		}
-		catch
-		{
-			log.LogWarning("Failed to update warnings file");
-			return false;
-		}
-		return true;
-	}
-
-	public static void OutputCachedWarnings(string warningsFile, LoggerBase log)
-	{
-		try
-		{
-			using FileStream fs = File.OpenRead(warningsFile);
-			foreach (Logger.SerializedWarningLog warningLog in JsonHelper.Deserialize<Logger.SerializedWarningLog[]>(fs))
-			{
-				if (warningLog.File != null)
-				{
-					log.LogWarning(warningLog.File, warningLog.Line, warningLog.Column, warningLog.EndLine, warningLog.EndColumn, warningLog.Message);
-				}
-				else
-				{
-					log.LogWarning(warningLog.Message);
-				}
-			}
-		}
-		catch
-		{
-			log.LogWarning("Failed to deserialize warnings file");
-		}
 	}
 }

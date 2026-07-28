@@ -75,12 +75,7 @@ StringName myStr = networkPacket.StringVariable;
 // do
 StringName myStr = new StringName(networkPacket.StringVariable);
 ```
-This conveys your intentions better, and you will be warned by default if you don't do this.
-
-To disable this warning (which is not recommended), either use `WarnOnNonConstantImplicitOperator=true` on a specific assembly or add a property like this for global effect:
-```xml
-<GDStringWarnOnNonConstantImplicitOperator>false</GDStringWarnOnNonConstantImplicitOperator>
-```
+This conveys your intentions of *creating* a string object in a meaningful way, and you will be warned by the compiler if you don't do this. You can suppress this warning just like any other compiler warning (although it is not recommended).
 
 ## Long Names
 

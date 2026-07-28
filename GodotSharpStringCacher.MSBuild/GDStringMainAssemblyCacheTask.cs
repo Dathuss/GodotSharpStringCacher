@@ -22,9 +22,6 @@ public class GDStringMainAssemblyCacheTask : Task
 
 
 	[Required]
-	public bool WarnOnNonConstantImplicitOperator { get; set; }
-
-	[Required]
 	public bool UseLongNamesByDefault { get; set; }
 
 
@@ -42,7 +39,7 @@ public class GDStringMainAssemblyCacheTask : Task
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
 		Logger log = new(this);
-		Config defaultConfig = new(UseLongNamesByDefault, WarnOnNonConstantImplicitOperator, log);
+		Config defaultConfig = new(UseLongNamesByDefault, false, log);
 
 		string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 		if (string.IsNullOrEmpty(godotSharp))
@@ -54,7 +51,6 @@ public class GDStringMainAssemblyCacheTask : Task
 
 		string outputFile = Path.Combine(intermediateDir, Path.GetFileName(IntermediateAssembly.ItemSpec));
 		string hashFile = outputFile + ".hash.cache";
-		string warningsFile = outputFile + ".warnings.cache";
 		string pdbFile = Context.GetPdbFileName(outputFile);
 
 		CachedIntermediateAssembly = IntermediateAssembly.CloneWithNewItemSpec(outputFile);
@@ -64,12 +60,6 @@ public class GDStringMainAssemblyCacheTask : Task
 		if (File.Exists(outputFile) && File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
 			log.LogMessage($"Main assembly up to date");
-
-			if (File.Exists(warningsFile))
-			{
-				Common.OutputCachedWarnings(warningsFile, log);
-				emittedFiles.Add(new TaskItem(warningsFile));
-			}
 
 			if (File.Exists(pdbFile))
 			{
@@ -97,10 +87,6 @@ public class GDStringMainAssemblyCacheTask : Task
 		}
 
 		File.WriteAllText(hashFile, newHash);
-		if (Common.CacheLoggerWarnings(warningsFile, log))
-		{
-			emittedFiles.Add(new TaskItem(warningsFile));
-		}
 
 		EmittedFiles = emittedFiles.ToArray();
 
