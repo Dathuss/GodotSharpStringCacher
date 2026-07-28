@@ -1,5 +1,6 @@
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Collections.Generic;
 
 namespace GodotSharpStringCacher;
 
@@ -55,6 +56,7 @@ internal class CacheTypesEmitter(Context ctx)
 		{
 			TypeDefinition type = new("", name, TypeAttributes.Class | TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit, ctx.Module.TypeSystem.Object);
 			type.CustomAttributes.Add(generatedCodeAttribute);
+			type.Fields.Capacity = namesToCache.Count;
 
 			/*
 				Note: `.cctor` is the name of a type's static constructor.
@@ -70,18 +72,19 @@ internal class CacheTypesEmitter(Context ctx)
 				```
 			*/
 			MethodDefinition cctor = new(".cctor", MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.RTSpecialName | MethodAttributes.SpecialName, ctx.Module.TypeSystem.Void);
-			ILProcessor processor = cctor.Body.GetILProcessor();
-			
+			Collection<Instruction> instructions = cctor.Body.Instructions;
+			instructions.Capacity = (3 * namesToCache.Count) + 1;
+
 			foreach (var kv in namesToCache)
 			{
 				string value = kv.Key;
 				FieldDefinition field = kv.Value;
 				type.Fields.Add(field);
-				processor.Emit(OpCodes.Ldstr, value);
-				processor.Emit(OpCodes.Newobj, ctorMethod);
-				processor.Emit(OpCodes.Stsfld, field);
+				instructions.Add(Instruction.Create(OpCodes.Ldstr, value));
+				instructions.Add(Instruction.Create(OpCodes.Newobj, ctorMethod));
+				instructions.Add(Instruction.Create(OpCodes.Stsfld, field));
 			}
-			processor.Emit(OpCodes.Ret);
+			instructions.Add(Instruction.Create(OpCodes.Ret));
 			type.Methods.Add(cctor);
 			ctx.Module.Types.Add(type);
 
