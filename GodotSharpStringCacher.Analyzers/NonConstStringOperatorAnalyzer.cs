@@ -10,12 +10,12 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 {
 	internal static readonly DiagnosticDescriptor _rule = new(
 		id: "GDS001",
-		title: "Implicit StringName or NodePath operator with non-constant string",
-		messageFormat: "Implicit {0} operator with non-constant string",
+		title: "Implicitly allocating StringName/NodePath from non-constant string",
+		messageFormat: "Implicitly allocating {0} from non-constant string",
 		category: "Usage",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "When making a StringName or NodePath object with a non-constant string argument, prefer using 'new StringName' or 'new NodePath'."
+		description: "When creating a StringName or NodePath from a non-constant string, prefer using \"new StringName\" or \"new NodePath\" to make the allocation explicit."
 	);
 
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(_rule);
@@ -33,7 +33,6 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 			{
 				Operand.ConstantValue.HasValue: false,
 				Operand.Type.SpecialType: SpecialType.System_String,
-				Conversion.IsImplicit: true,
 				Type:
 				{
 					ContainingAssembly.Name: "GodotSharp",

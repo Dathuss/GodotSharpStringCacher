@@ -35,14 +35,14 @@ public sealed class ConstStringCodeFixProvider : CodeFixProvider
 
 		if (syntaxNode is ExpressionSyntax syntax)
 		{
-			// Example:'NodePath nodePath = NetworkPacket.StringValue;'
-			// Here 'NetworkPacket.StringValue' is selected.
+			// Example: "NodePath nodePath = NetworkPacket.StringValue;"
+			// Here, "NetworkPacket.StringValue" is selected.
 			expression = syntax;
 		}
 		else if (syntaxNode is ArgumentSyntax argumentSyntax)
 		{
-			// Example: 'return GetNodeOrNull(NetworkPacket.StringValue);'
-			// Here 'NetworkPacket.StringValue' is selected.
+			// Example: "return GetNodeOrNull(NetworkPacket.StringValue);"
+			// Here, "NetworkPacket.StringValue" is selected.
 			expression = argumentSyntax.Expression;
 		}
 		else
@@ -59,34 +59,50 @@ public sealed class ConstStringCodeFixProvider : CodeFixProvider
 
 		context.RegisterCodeFix(
 			CodeAction.Create(
-				$"Add explicit {stringConversionType} constructor",
-				ct => AddExplicitConstructorAsync(context.Document, stringConversionType, expression, ct),
-				stringConversionType
+				title: $"Add explicit {stringConversionType} constructor",
+				createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, semanticModel, stringConversionType, expression, ct),
+				equivalenceKey: stringConversionType
 			),
 			context.Diagnostics
 		);
 	}
 
-	private static async Task<Document> AddExplicitConstructorAsync(Document document,
+	static async Task<Document> AddExplicitConstructorAsync(Document document, SemanticModel semanticModel,
 		string stringConversionType, ExpressionSyntax expressionToBuild, CancellationToken ct)
 	{
-		// From any expression 'expr', replace it with 'new StringName(expr)' (or 'new NodePath(expr)')
+		// Remove explicit cast to StringName/NodePath if present
+		ExpressionSyntax expressionInsideConstructor = expressionToBuild;
+		if (expressionToBuild is CastExpressionSyntax castExpression)
+		{
+			if (semanticModel.GetSymbolInfo(castExpression.Type, ct).Symbol?.Name == stringConversionType)
+			{
+				expressionInsideConstructor = castExpression.Expression;
+			}
+		}
+
+		// For any expression "expr", replace it with "new StringName(expr)"/"new NodePath(expr)"
 		ObjectCreationExpressionSyntax objectCreationExpression = SyntaxFactory.ObjectCreationExpression(
-			SyntaxFactory.IdentifierName(stringConversionType),
-			SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
-				SyntaxFactory.Argument(expressionToBuild)
+			type: SyntaxFactory.IdentifierName(stringConversionType),
+			argumentList: SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
+				SyntaxFactory.Argument(expressionInsideConstructor)
 			)),
-			null
+			initializer: null
 		);
 
 		SyntaxNode oldRoot = (await document.GetSyntaxRootAsync(ct).ConfigureAwait(false))!;
 		SyntaxNode newRoot = oldRoot.ReplaceNode(expressionToBuild, objectCreationExpression);
 		if (newRoot is CompilationUnitSyntax compilationUnit)
 		{
-			// Add 'using Godot;' directive if it does not exist
-			if (!compilationUnit.Usings.Any(x => x.Name.ToString() == "Godot"))
+			// Check if the symbol "StringName"/"NodePath" is accessible
+			ISymbol? stringConversionTypeSymbol = semanticModel.GetSpeculativeSymbolInfo(
+				expressionToBuild.SpanStart,
+				SyntaxFactory.IdentifierName(stringConversionType),
+				SpeculativeBindingOption.BindAsTypeOrNamespace
+			).Symbol;
+			if (stringConversionTypeSymbol == null)
 			{
-				newRoot = compilationUnit.AddUsings([SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName("Godot"))]);
+				// Add "using Godot;" directive
+				newRoot = compilationUnit.AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName("Godot")));
 			}
 		}
 
