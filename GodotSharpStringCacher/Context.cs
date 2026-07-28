@@ -197,7 +197,6 @@ public class Context : IDisposable
 	void MatchAndPatch(MethodDefinition method)
 	{
 		Collection<Instruction> instructions = method.Body.Instructions;
-		bool hasSimplifiedMacros = false;
 
 		// We are looking for this pattern:
 		// IL ldstr "MY_CONSTANT"
@@ -234,11 +233,6 @@ public class Context : IDisposable
 					}
 					return;
 				}
-				if (!hasSimplifiedMacros)
-				{
-					method.Body.SimplifyMacros();
-					hasSimplifiedMacros = true;
-				}
 				// Mono.Cecil has a bug where if you replace an instruction, branches that point
 				// to the previous Instruction object are not updated. This will lead to the corruption of the
 				// method body when rebuilding the assembly
@@ -259,9 +253,6 @@ public class Context : IDisposable
 				TryMakeEdit(operand => CacheTypesEmitter.AddNodePath(operand), "NodePath");
 			}
 		}
-
-		if (hasSimplifiedMacros)
-			method.Body.OptimizeMacros();
 	}
 
 	/// <summary>
