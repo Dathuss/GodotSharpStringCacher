@@ -70,10 +70,17 @@ public sealed class ConstStringCodeFixProvider : CodeFixProvider
 	static async Task<Document> AddExplicitConstructorAsync(Document document, SemanticModel semanticModel,
 		string stringConversionType, ExpressionSyntax expressionToBuild, CancellationToken ct)
 	{
+		// Remove explicit cast to StringName/NodePath if present
+		ExpressionSyntax expressionInsideConstructor = expressionToBuild;
+		if (expressionToBuild is CastExpressionSyntax castExpression)
+		{
+			if (semanticModel.GetSymbolInfo(castExpression.Type, ct).Symbol?.Name == stringConversionType)
+			{
+				expressionInsideConstructor = castExpression.Expression;
+			}
+		}
+
 		// For any expression "expr", replace it with "new StringName(expr)"/"new NodePath(expr)"
-		ExpressionSyntax expressionInsideConstructor = expressionToBuild is CastExpressionSyntax expressionToBuildCast
-			? expressionToBuildCast.Expression
-			: expressionToBuild;
 		ObjectCreationExpressionSyntax objectCreationExpression = SyntaxFactory.ObjectCreationExpression(
 			type: SyntaxFactory.IdentifierName(stringConversionType),
 			argumentList: SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
@@ -88,7 +95,7 @@ public sealed class ConstStringCodeFixProvider : CodeFixProvider
 		{
 			// Check if the symbol "StringName"/"NodePath" is accessible
 			ISymbol? stringConversionTypeSymbol = semanticModel.GetSpeculativeSymbolInfo(
-				compilationUnit.SpanStart,
+				expressionToBuild.SpanStart,
 				SyntaxFactory.IdentifierName(stringConversionType),
 				SpeculativeBindingOption.BindAsTypeOrNamespace
 			).Symbol;
