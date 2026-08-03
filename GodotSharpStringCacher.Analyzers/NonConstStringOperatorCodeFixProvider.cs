@@ -40,27 +40,15 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 		if (syntaxNode is not ExpressionSyntax expression)
 			return;
 
-		CodeAction? codeAction = GetFixForNonConstImplicitStringOperator(context, expression, diagnostic, semanticModel);
-
-		if (codeAction != null)
-		{
-			context.RegisterCodeFix(
-				codeAction,
-				context.Diagnostics
-			);
-		}
-	}
-
-	static CodeAction? GetFixForNonConstImplicitStringOperator(CodeFixContext context,
-		ExpressionSyntax expression, Diagnostic diagnostic, SemanticModel semanticModel)
-	{
 		// Guaranteed to be either "StringName" or "NodePath"
 		string typeName = diagnostic.Properties["typeName"]!;
 
-		return CodeAction.Create(
-			title: $"Add explicit {typeName} constructor",
-			createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, semanticModel, typeName, expression, ct),
-			equivalenceKey: $"{typeName}_addCtor"
+		context.RegisterCodeFix(
+			CodeAction.Create(
+				title: $"Add explicit {typeName} constructor",
+				createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, semanticModel, typeName, expression, ct),
+				equivalenceKey: $"{typeName}_addCtor"),
+			context.Diagnostics
 		);
 	}
 

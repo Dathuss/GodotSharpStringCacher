@@ -31,30 +31,18 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 
 		SyntaxNode syntaxNode = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
 
-		CodeAction? codeAction = GetFixForConstStringConstructor(context, syntaxNode, diagnostic);
-
-		if (codeAction != null)
-		{
-			context.RegisterCodeFix(
-				codeAction,
-				context.Diagnostics
-			);
-		}
-	}
-
-	static CodeAction? GetFixForConstStringConstructor(CodeFixContext context,
-		SyntaxNode syntaxNode, Diagnostic diagnostic)
-	{
 		if (syntaxNode is not BaseObjectCreationExpressionSyntax objectCreationExpression)
-			return null;
+			return;
 
 		// Guaranteed to be either "StringName" or "NodePath"
 		string typeName = diagnostic.Properties["typeName"]!;
 
-		return CodeAction.Create(
-			title: $"Remove {typeName} constructor",
-			createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, objectCreationExpression, ct),
-			equivalenceKey: $"{typeName}_removeCtor"
+		context.RegisterCodeFix(
+			CodeAction.Create(
+				title: $"Remove {typeName} constructor",
+				createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, objectCreationExpression, ct),
+				equivalenceKey: $"{typeName}_removeCtor"),
+			context.Diagnostics
 		);
 	}
 
