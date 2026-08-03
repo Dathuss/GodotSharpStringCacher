@@ -187,9 +187,7 @@ public class Context : IDisposable
 			if (typeMethod.Body == null)
 				continue;
 
-			// No need to patch if we're already in a static constructor
-			if (typeMethod.Name != ".cctor")
-				MatchAndPatch(typeMethod);
+			MatchAndPatch(typeMethod);
 		}
 	}
 
