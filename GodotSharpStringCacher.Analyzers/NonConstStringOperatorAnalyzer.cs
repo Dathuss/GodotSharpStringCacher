@@ -8,17 +8,8 @@ namespace GodotSharpStringCacher.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 {
-	internal static readonly DiagnosticDescriptor _rule = new(
-		id: "GDS001",
-		title: "Implicitly allocating StringName/NodePath from non-constant string",
-		messageFormat: "Implicitly allocating {0} from non-constant string",
-		category: "Usage",
-		defaultSeverity: DiagnosticSeverity.Warning,
-		isEnabledByDefault: true,
-		description: "When creating a StringName or NodePath from a non-constant string, prefer using \"new StringName\" or \"new NodePath\" to make the allocation explicit."
-	);
-
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(_rule);
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+		ImmutableArray.Create(Common.StringTypeImplicitOperatorWithNonConstantStringRule);
 
 	public override void Initialize(AnalysisContext context)
 	{
@@ -40,7 +31,11 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 				}
 			})
 		{
-			context.ReportDiagnostic(Diagnostic.Create(_rule, context.Operation.Syntax.GetLocation(), conversionTypeName));
-		}			
+			context.ReportDiagnostic(Diagnostic.Create(
+				Common.StringTypeImplicitOperatorWithNonConstantStringRule,
+				context.Operation.Syntax.GetLocation(),
+				ImmutableDictionary.CreateRange<string, string?>([new ("typeName", conversionTypeName)]),
+				conversionTypeName));
+		}
 	}
 }

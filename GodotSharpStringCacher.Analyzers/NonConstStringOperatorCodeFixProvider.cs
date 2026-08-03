@@ -14,7 +14,8 @@ namespace GodotSharpStringCacher.Analyzers;
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(NonConstStringOperatorCodeFixProvider))]
 public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 {
-	public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(NonConstStringOperatorAnalyzer._rule.Id);
+	public override ImmutableArray<string> FixableDiagnosticIds
+		=> ImmutableArray.Create(Common.StringTypeImplicitOperatorWithNonConstantStringRule.Id);
 
 	public override FixAllProvider? GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
@@ -31,6 +32,20 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 
 		SyntaxNode syntaxNode = root.FindNode(diagnosticSpan);
 
+		CodeAction? codeAction = GetFixForNonConstImplicitStringOperator(context, syntaxNode, diagnostic, semanticModel);
+
+		if (codeAction != null)
+		{
+			context.RegisterCodeFix(
+				codeAction,
+				context.Diagnostics
+			);
+		}
+	}
+
+	static CodeAction? GetFixForNonConstImplicitStringOperator(CodeFixContext context,
+		SyntaxNode syntaxNode, Diagnostic diagnostic, SemanticModel semanticModel)
+	{
 		ExpressionSyntax expression;
 
 		if (syntaxNode is ExpressionSyntax syntax)
@@ -47,34 +62,27 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 		}
 		else
 		{
-			return;
+			return null;
 		}
 
-		ITypeSymbol? convertedType = semanticModel.GetTypeInfo(expression, context.CancellationToken).ConvertedType;
+		// Guaranteed to be either "StringName" or "NodePath"
+		string typeName = diagnostic.Properties["typeName"]!;
 
-		if (convertedType == null)
-			return;
-
-		string stringConversionType = convertedType.Name;
-
-		context.RegisterCodeFix(
-			CodeAction.Create(
-				title: $"Add explicit {stringConversionType} constructor",
-				createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, semanticModel, stringConversionType, expression, ct),
-				equivalenceKey: stringConversionType
-			),
-			context.Diagnostics
+		return CodeAction.Create(
+			title: $"Add explicit {typeName} constructor",
+			createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, semanticModel, typeName, expression, ct),
+			equivalenceKey: $"{typeName}_addCtor"
 		);
 	}
 
 	static async Task<Document> AddExplicitConstructorAsync(Document document, SemanticModel semanticModel,
-		string stringConversionType, ExpressionSyntax expressionToBuild, CancellationToken ct)
+		string typeName, ExpressionSyntax expressionToBuild, CancellationToken ct)
 	{
 		// Remove explicit cast to StringName/NodePath if present
 		ExpressionSyntax expressionInsideConstructor = expressionToBuild;
 		if (expressionToBuild is CastExpressionSyntax castExpression)
 		{
-			if (semanticModel.GetSymbolInfo(castExpression.Type, ct).Symbol?.Name == stringConversionType)
+			if (semanticModel.GetSymbolInfo(castExpression.Type, ct).Symbol?.Name == typeName)
 			{
 				expressionInsideConstructor = castExpression.Expression;
 			}
@@ -82,7 +90,7 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 
 		// For any expression "expr", replace it with "new StringName(expr)"/"new NodePath(expr)"
 		ObjectCreationExpressionSyntax objectCreationExpression = SyntaxFactory.ObjectCreationExpression(
-			type: SyntaxFactory.IdentifierName(stringConversionType),
+			type: SyntaxFactory.IdentifierName(typeName),
 			argumentList: SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
 				SyntaxFactory.Argument(expressionInsideConstructor)
 			)),
@@ -96,7 +104,7 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 			// Check if the symbol "StringName"/"NodePath" is accessible
 			ISymbol? stringConversionTypeSymbol = semanticModel.GetSpeculativeSymbolInfo(
 				expressionToBuild.SpanStart,
-				SyntaxFactory.IdentifierName(stringConversionType),
+				SyntaxFactory.IdentifierName(typeName),
 				SpeculativeBindingOption.BindAsTypeOrNamespace
 			).Symbol;
 			if (stringConversionTypeSymbol == null)

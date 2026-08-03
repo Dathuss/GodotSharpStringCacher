@@ -77,6 +77,17 @@ StringName myStr = new StringName(networkPacket.StringVariable);
 ```
 This conveys your intentions of *creating* a string object in a meaningful way, and you will be warned by the compiler if you don't do this. You can suppress this warning just like any other compiler warning (although it is not recommended).
 
+## Warning on Explicit Constructor With Constant
+
+Conversely, you are encouraged not to use the `new` syntax when using a constant string. For example:
+```csharp
+// don't
+GetNode(new NodePath("%Raycast"))
+// do
+GetNode("%Raycast")
+```
+You will be warned by the compiler, and the string will **not** be cached.
+
 ## Long Names
 
 By default, the fields created from your constant strings in the assembly have a short numeric name. However, in niche cases, like statically reversing your own project, you may want these fields to have names that resemble their original value. For example, `"my_input"` would create a field called `_my_input`.
