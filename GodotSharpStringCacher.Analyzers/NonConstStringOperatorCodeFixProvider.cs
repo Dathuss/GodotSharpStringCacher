@@ -11,8 +11,8 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace GodotSharpStringCacher.Analyzers;
 
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ConstStringCodeFixProvider))]
-public sealed class ConstStringCodeFixProvider : CodeFixProvider
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(NonConstStringOperatorCodeFixProvider))]
+public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 {
 	public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArray.Create(NonConstStringOperatorAnalyzer._rule.Id);
 
