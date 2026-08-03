@@ -29,7 +29,7 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 
 		TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
-		SyntaxNode syntaxNode = root.FindNode(diagnosticSpan);
+		SyntaxNode syntaxNode = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
 
 		CodeAction? codeAction = GetFixForConstStringConstructor(context, syntaxNode, diagnostic);
 

@@ -30,9 +30,12 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 
 		TextSpan diagnosticSpan = diagnostic.Location.SourceSpan;
 
-		SyntaxNode syntaxNode = root.FindNode(diagnosticSpan);
+		SyntaxNode syntaxNode = root.FindNode(diagnosticSpan, getInnermostNodeForTie: true);
 
-		CodeAction? codeAction = GetFixForNonConstImplicitStringOperator(context, syntaxNode, diagnostic, semanticModel);
+		if (syntaxNode is not ExpressionSyntax expression)
+			return;
+
+		CodeAction? codeAction = GetFixForNonConstImplicitStringOperator(context, expression, diagnostic, semanticModel);
 
 		if (codeAction != null)
 		{
@@ -44,27 +47,8 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 	}
 
 	static CodeAction? GetFixForNonConstImplicitStringOperator(CodeFixContext context,
-		SyntaxNode syntaxNode, Diagnostic diagnostic, SemanticModel semanticModel)
+		ExpressionSyntax expression, Diagnostic diagnostic, SemanticModel semanticModel)
 	{
-		ExpressionSyntax expression;
-
-		if (syntaxNode is ExpressionSyntax syntax)
-		{
-			// Example: "NodePath nodePath = NetworkPacket.StringValue;"
-			// Here, "NetworkPacket.StringValue" is selected.
-			expression = syntax;
-		}
-		else if (syntaxNode is ArgumentSyntax argumentSyntax)
-		{
-			// Example: "return GetNodeOrNull(NetworkPacket.StringValue);"
-			// Here, "NetworkPacket.StringValue" is selected.
-			expression = argumentSyntax.Expression;
-		}
-		else
-		{
-			return null;
-		}
-
 		// Guaranteed to be either "StringName" or "NodePath"
 		string typeName = diagnostic.Properties["typeName"]!;
 
