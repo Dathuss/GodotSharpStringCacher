@@ -14,8 +14,7 @@ namespace GodotSharpStringCacher.Analyzers;
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ConstStringConstructorCodeFixProvider)), Shared]
 public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 {
-	public override ImmutableArray<string> FixableDiagnosticIds
-		=> ImmutableArray.Create(Common.StringTypeConstructorWithConstantStringRule.Id);
+	public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(Common.StringTypeConstructorWithConstantStringRule.Id);
 
 	public override FixAllProvider? GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 

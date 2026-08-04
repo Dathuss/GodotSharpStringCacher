@@ -22,6 +22,6 @@ public static class Common
 		category: "Usage",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "Consider removing the constructor in order to statically cache the StringName/NodePath."
+		description: "Consider removing the constructor in order to statically cache the StringName or NodePath."
 	);
 }
