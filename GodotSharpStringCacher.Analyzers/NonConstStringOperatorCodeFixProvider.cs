@@ -27,8 +27,10 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 	public override async Task RegisterCodeFixesAsync(CodeFixContext context)
 	{
 		SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+		if (root == null)
+			return;
 		SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync().ConfigureAwait(false);
-		if (root == null || semanticModel == null)
+		if (semanticModel == null)
 			return;
 
 		Diagnostic diagnostic = context.Diagnostics.First();
