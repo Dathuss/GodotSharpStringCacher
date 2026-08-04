@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Composition;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace GodotSharpStringCacher.Analyzers;
 
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ConstStringConstructorCodeFixProvider))]
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ConstStringConstructorCodeFixProvider)), Shared]
 public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 {
 	public override ImmutableArray<string> FixableDiagnosticIds
