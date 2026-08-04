@@ -90,7 +90,7 @@ You will be warned by the compiler, and the string will **not** be cached.
 
 ## Long Names
 
-By default, the fields created from your constant strings in the assembly have a short numeric name. However, in niche cases, like statically reversing your own project, you may want these fields to have names that resemble their original value. For example, `"my_input"` would create a field called `_my_input`.
+By default, the fields created from your constant strings in the assembly have a short numeric name. However, in niche cases, like statically reversing your own project, you may want these fields to have names that resemble their original value. For example, `"my_input"` would create a field called `"_my_input"`.
 To enable this in a specific assembly, you can add `LongNames=true`. To enable this globally, add
 ```xml
 <GDStringUseLongNames>true</GDStringUseLongNames>

@@ -23,7 +23,7 @@ internal class CacheTypesEmitter(Context ctx)
 		if (StringNamesToCache.TryGetValue(value, out FieldDefinition? fld))
 			return fld;
 
-		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, StringNamesToCache.Values) : $"_{StringNamesToCache.Count}";
+		string fieldName = ctx.Config.UseLongNames ? $"\"{value}\"" : $"_{StringNamesToCache.Count}";
 		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.InitOnly, ctx.Imported_StringNameType);
 		StringNamesToCache.Add(value, field);
 		return field;
@@ -34,7 +34,7 @@ internal class CacheTypesEmitter(Context ctx)
 		if (NodePathsToCache.TryGetValue(value, out FieldDefinition? fld))
 			return fld;
 		
-		string fieldName = ctx.Config.UseLongNames ? GetFieldName(value, NodePathsToCache.Values) : $"_{NodePathsToCache.Count}";
+		string fieldName = ctx.Config.UseLongNames ? $"\"{value}\"" : $"_{NodePathsToCache.Count}";
 		FieldDefinition field = new(fieldName, FieldAttributes.Public | FieldAttributes.Static | FieldAttributes.InitOnly, ctx.Imported_NodePathType);
 		NodePathsToCache.Add(value, field);
 		return field;
@@ -103,25 +103,5 @@ internal class CacheTypesEmitter(Context ctx)
 		{
 			EmitType($"{NODE_PATH_CACHE_TYPE_NAME_PREFIX}{assemblyName}", NodePathsToCache, ctx.Imported_NodePath_StringCtor);
 		}
-	}
-	
-	/// <summary>
-	/// Turns a string value to a CIL field name with a closely resembling name.
-	/// This can help static analysis, but makes patching slower
-	/// </summary>
-	/// <param name="existingFields">Existing field names to check for duplicates</param>
-	string GetFieldName(string value, ICollection<FieldDefinition> existingFields)
-	{
-		string sanitized = value.Replace(' ', '_');
-		string attempt = $"_{sanitized}";
-
-		int trailing = 0;
-		while (existingFields.Any(x => x.Name == attempt))
-		{
-			attempt = $"_{sanitized}_{trailing}";
-			trailing++;
-		}
-
-		return attempt;
 	}
 }
