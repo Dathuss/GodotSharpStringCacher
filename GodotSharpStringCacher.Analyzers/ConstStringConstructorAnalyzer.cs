@@ -9,8 +9,7 @@ namespace GodotSharpStringCacher.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 {
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-		ImmutableArray.Create(Common.StringTypeConstructorWithConstantStringRule);
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(Common.StringTypeConstructorWithConstantStringRule);
 
 	public override void Initialize(AnalysisContext context)
 	{
@@ -38,7 +37,7 @@ public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 			context.ReportDiagnostic(Diagnostic.Create(
 				Common.StringTypeConstructorWithConstantStringRule,
 				node.GetLocation(),
-				ImmutableDictionary.CreateRange<string, string?>([new ("typeName", ctorTypeName)]),
+				ImmutableDictionary.CreateRange<string, string?>([new("typeName", ctorTypeName)]),
 				ctorTypeName));
 		}
 	}

@@ -8,8 +8,7 @@ namespace GodotSharpStringCacher.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 {
-	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-		ImmutableArray.Create(Common.StringTypeImplicitOperatorWithNonConstantStringRule);
+	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(Common.StringTypeImplicitOperatorWithNonConstantStringRule);
 
 	public override void Initialize(AnalysisContext context)
 	{
@@ -34,7 +33,7 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 			context.ReportDiagnostic(Diagnostic.Create(
 				Common.StringTypeImplicitOperatorWithNonConstantStringRule,
 				context.Operation.Syntax.GetLocation(),
-				ImmutableDictionary.CreateRange<string, string?>([new ("typeName", conversionTypeName)]),
+				ImmutableDictionary.CreateRange<string, string?>([new("typeName", conversionTypeName)]),
 				conversionTypeName));
 		}
 	}

@@ -16,8 +16,7 @@ namespace GodotSharpStringCacher.Analyzers;
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(NonConstStringOperatorCodeFixProvider)), Shared]
 public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 {
-	public override ImmutableArray<string> FixableDiagnosticIds
-		=> ImmutableArray.Create(Common.StringTypeImplicitOperatorWithNonConstantStringRule.Id);
+	public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(Common.StringTypeImplicitOperatorWithNonConstantStringRule.Id);
 
 	// We cannot use WellKnownFixAllProviders.BatchFixer because it does not work when
 	// diagnostics have spans that overlap, which is possible with this code rule.
@@ -111,17 +110,19 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 	static async Task<Document?> FixAllAsync(FixAllContext context, Document document, ImmutableArray<Diagnostic> diagnostics)
 	{
 		SyntaxNode? root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+		if (root == null)
+			return null;
 		SemanticModel? semanticModel = await document.GetSemanticModelAsync().ConfigureAwait(false);
-		if (root == null || semanticModel == null)
+		if (semanticModel == null)
 			return null;
 
 		string typeName = diagnostics.First().Properties["typeName"]!;
 
 		List<ExpressionSyntax> expressionsToReplace = new(diagnostics.Length);
 
-		foreach (Diagnostic d in diagnostics)
+		foreach (Diagnostic diagnostic in diagnostics)
 		{
-			SyntaxNode syntaxNode = root.FindNode(d.Location.SourceSpan, getInnermostNodeForTie: true);
+			SyntaxNode syntaxNode = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
 			if (syntaxNode is ExpressionSyntax toReplace)
 			{
 				expressionsToReplace.Add(toReplace);
