@@ -45,9 +45,9 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 
 		context.RegisterCodeFix(
 			CodeAction.Create(
-				title: $"Add explicit {typeName} constructor",
+				title: "Add explicit constructor",
 				createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, semanticModel, typeName, expression, ct),
-				equivalenceKey: $"{typeName}_addCtor"),
+				equivalenceKey: "GDStringTypeAddCtor"),
 			context.Diagnostics
 		);
 	}
@@ -116,26 +116,33 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 		if (semanticModel == null)
 			return null;
 
-		string typeName = diagnostics.First().Properties["typeName"]!;
-
-		List<ExpressionSyntax> expressionsToReplace = new(diagnostics.Length);
+		Dictionary<ExpressionSyntax, string> expressionsToReplace = new(diagnostics.Length);
 
 		foreach (Diagnostic diagnostic in diagnostics)
 		{
 			SyntaxNode syntaxNode = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
 			if (syntaxNode is ExpressionSyntax toReplace)
 			{
-				expressionsToReplace.Add(toReplace);
+				expressionsToReplace.Add(toReplace, diagnostic.Properties["typeName"]!);
 			}
 		}
 
 		SyntaxNode newRoot = root.ReplaceNodes(
-			expressionsToReplace,
-			(_, current) => ReplaceExpression(current, semanticModel, typeName, context.CancellationToken)
+			expressionsToReplace.Keys,
+			(original, current) => ReplaceExpression(
+				current,
+				semanticModel,
+				expressionsToReplace[original],
+				context.CancellationToken)
 		);
 
-		newRoot = AddUsingIfNecessary(newRoot, semanticModel, typeName, expressionsToReplace[0].SpanStart);
+		newRoot = AddUsingIfNecessary(newRoot,
+			semanticModel,
+			// Since StringName and NodePath are in the same namespace, it doesn't matter which one is chosen
+			diagnostics[0].Properties["typeName"]!,
+			diagnostics[0].Location.SourceSpan.Start);
 
 		return document.WithSyntaxRoot(newRoot);
 	}
 }
+

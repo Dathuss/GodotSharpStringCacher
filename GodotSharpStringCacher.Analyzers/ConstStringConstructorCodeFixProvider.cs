@@ -39,9 +39,9 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 
 		context.RegisterCodeFix(
 			CodeAction.Create(
-				title: $"Remove {typeName} constructor",
+				title: "Remove constructor",
 				createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, objectCreationExpression, ct),
-				equivalenceKey: $"{typeName}_removeCtor"),
+				equivalenceKey: $"GDStringTypeRemoveCtor"),
 			context.Diagnostics
 		);
 	}
