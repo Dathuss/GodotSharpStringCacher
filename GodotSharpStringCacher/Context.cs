@@ -204,16 +204,14 @@ public class Context : IDisposable
 
 		for (int i = 1; i < instructions.Count; i++)
 		{
-			if (instructions[i].OpCode != OpCodes.Call)
+			if (instructions[i] is not {OpCode.Code: Code.Call} callInstruction)
 				continue;
 			
-			Instruction callInstruction = instructions[i];
 			MethodReference calledMethod = (MethodReference)callInstruction.Operand;
 			
 			void TryMakeEdit(Func<string, FieldDefinition> fieldGetter, string typeName)
 			{
-				Instruction ldstrInstruction = instructions[i - 1];
-				if (ldstrInstruction.OpCode != OpCodes.Ldstr)
+				if (instructions[i - 1] is not {OpCode.Code: Code.Ldstr} ldstrInstruction)
 				{
 					if (Config.WarnOnNonConstantImplicitOperator && Config.Logger != null)
 					{
