@@ -195,13 +195,26 @@ public class Context : IDisposable
 	{
 		Collection<Instruction> instructions = method.Body.Instructions;
 
-		// We are looking for this pattern:
-		// IL ldstr "MY_CONSTANT"
-		// IL call (Godot.StringName/Godot.NodePath)::op_Implicit(System.String)
+		PatchSimpleFlowControl(instructions);
 
-		// Which we will replace with
-		// IL ldsfld our_generated_field
+		PatchSequentialLdstrs(instructions, method);
+	}
 
+	/// <summary>
+	/// Patches CIL patterns of the form
+	/// <code>
+	/// IL ldstr "MY_CONSTANT"
+	/// IL call (Godot.StringName/Godot.NodePath)::op_Implicit(System.String)
+	/// </code>
+	/// To
+	/// <code>
+	/// ldsfld |our_generated_field|
+	/// </code>
+	/// 
+	/// Requires <see cref="PatchSimpleFlowControl"/> to be run first.
+	/// </summary>
+	void PatchSequentialLdstrs(Collection<Instruction> instructions, MethodDefinition method)
+	{
 		for (int i = 1; i < instructions.Count; i++)
 		{
 			if (instructions[i] is not {OpCode.Code: Code.Call} callInstruction)
@@ -228,15 +241,8 @@ public class Context : IDisposable
 					}
 					return;
 				}
-				// Mono.Cecil has a bug where if you replace an instruction, branches that point
-				// to the previous Instruction object are not updated. This will lead to the corruption of the
-				// method body when rebuilding the assembly
-				// The easiest and fastest way to circumvent this is to directly edit the fields
-				// of the Instruction object so as not to invalidate the reference.
-				ldstrInstruction.OpCode = OpCodes.Ldsfld;
-				ldstrInstruction.Operand = fieldGetter((string)ldstrInstruction.Operand);
-				callInstruction.OpCode = OpCodes.Nop;
-				callInstruction.Operand = null;
+				ReplaceInstruction(ldstrInstruction, OpCodes.Ldsfld, fieldGetter((string)ldstrInstruction.Operand));
+				ReplaceInstruction(callInstruction, OpCodes.Nop, null);
 			}
 
 			if (IsStringToStringNameImplicitOp(calledMethod))
@@ -248,6 +254,103 @@ public class Context : IDisposable
 				TryMakeEdit(operand => CacheTypesEmitter.AddNodePath(operand), "NodePath");
 			}
 		}
+	}
+
+	/// <summary>
+	/// The first patch. Targets branches that point to an implicit operator call.<br/>
+	/// 
+	/// This is important as <see cref="PatchSequentialLdstrs"/> would yield invalid CIL in the case of,
+	/// for example a ternary operator of the form:
+	/// <list type="bullet">
+	///   <item><c>StringName x = GetBool() ? "abc" : "def"</c></item>
+	///   <item><c>NodePath y = GetBool() ? "abc" : GetString()</c></item>
+	/// </list>
+	/// 
+	/// The first example would yield CIL like this:
+	/// <code>
+	/// IL_01: call bool GetBool()
+	/// IL_02: brtrue.s IL_05
+	/// IL_03: ldstr "def"
+	/// IL_04: br.s IL_06
+	/// IL_05: ldstr "abc"
+	/// IL_06: call class Godot.StringName Godot.StringName::op_Implicit(string)
+	/// IL_07: (Rest of the function. At this point a single StringName was pushed to the stack.)
+	/// </code>
+	/// Notice how there is a single conversion call and both pathes flow into it.<br/>
+	/// 
+	/// <c>PatchSequentialLdstrs</c> would replace the <c>call</c> at <c>IL_06</c> with
+	/// a <c>nop</c>, leaving <c>IL_04</c> to jump forward and leave a <c>string</c>
+	/// on the stack where a <c>StringName</c> is expected.<br/>
+	/// 
+	/// This patch will ensure that if an unconditional branch is preceeded by a <c>ldstr</c>,
+	/// and that the branch target is a conversion method, said <c>ldstr</c> will be cached
+	/// and the branch will point to the instruction after the <c>call</c>.<br/>
+	/// 
+	/// Therefore, when <c>PatchSequentialLdstrs</c> runs, it will patch out the other path
+	/// (or not, if the other path does not contain a constant string like in the second example)
+	/// and CIL will be valid again.
+	/// </summary>
+	void PatchSimpleFlowControl(Collection<Instruction> instructions)
+	{
+		for (int i = 1; i < instructions.Count; i++)
+		{
+			if (instructions[i] is not
+				{
+					OpCode.FlowControl: FlowControl.Branch,
+					Operand: Instruction
+					{
+						OpCode.Code: Code.Call,
+						Operand: MethodReference calledMethod
+					} callInstruction
+				} branchInstruction)
+			{
+				continue;
+			}
+			
+			void TryPatchBranch(Func<string, FieldDefinition> fieldGetter)
+			{
+				if (instructions[i - 1] is {OpCode.Code: Code.Ldstr} ldstrInstruction)
+				{
+					Config.Logger?.LogWarning($"replacing {ldstrInstruction}");
+					ReplaceInstruction(ldstrInstruction, OpCodes.Ldsfld, fieldGetter((string)ldstrInstruction.Operand));
+					// Point the branch to the next instruction, because if the other path does not
+					// get its `call` removed, it will create invalid CIL.
+					branchInstruction.Operand = callInstruction.Next;
+				}
+				else if (callInstruction.Previous.OpCode == OpCodes.Ldstr)
+				{
+					// In this case, PatchSequentialLdstrs will patch out the call. Therefore we insert a
+					// call to the implicit operator before the branch and move the branch to the next
+					// instruction.
+					// It would be better if the user added an explicit constructor, but it's not a
+					// reason to generate invalid CIL.
+					Config.Logger?.LogWarning($"prepending to {branchInstruction}");
+					instructions.Insert(i, Instruction.Create(OpCodes.Call, calledMethod));
+					branchInstruction.Operand = callInstruction.Next;
+					i++;
+				}
+			}
+
+			if (IsStringToStringNameImplicitOp(calledMethod))
+			{
+				TryPatchBranch(CacheTypesEmitter.AddStringName);
+			}
+			else if (IsStringToNodePathImplicitOp(calledMethod))
+			{
+				TryPatchBranch(CacheTypesEmitter.AddNodePath);
+			}
+		}
+	}
+
+	void ReplaceInstruction(Instruction instruction, OpCode opCode, object? operand)
+	{
+		// Mono.Cecil has an oversight where if you replace an instruction, branches that point
+		// to the previous Instruction object are not updated. This will lead to the corruption of the
+		// method body when rebuilding the assembly
+		// The easiest and fastest way to circumvent this is to directly edit the fields
+		// of the Instruction object so as not to invalidate the reference.
+		instruction.OpCode = opCode;
+		instruction.Operand = operand;
 	}
 
 	/// <summary>
