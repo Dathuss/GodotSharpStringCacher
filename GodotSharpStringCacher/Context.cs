@@ -17,11 +17,14 @@ public class Context : IDisposable
 	internal string? GodotSharpDirectory { get; private set; } = null;
 
 	internal TypeReference Imported_StringNameType { get; private set; } = null!;
-	internal MethodReference Imported_StringName_StringCtor { get; private set; } = null!; 
+	internal MethodReference Imported_StringName_StringCtor { get; private set; } = null!;
 	internal TypeReference Imported_NodePathType { get; private set; } = null!;
 	internal MethodReference Imported_NodePath_StringCtor { get; private set; } = null!;
 
 	internal readonly CacheTypesEmitter CacheTypesEmitter;
+
+	// Only used inside MatchAndPatch, avoids unecessary allocation
+	readonly List<(Instruction, FieldReference)> directConversionsToPatch = [];
 
 	public Context(Config? config = null)
 	{
@@ -195,92 +198,108 @@ public class Context : IDisposable
 	{
 		Collection<Instruction> instructions = method.Body.Instructions;
 
-		// We are looking for this pattern:
-		// IL ldstr "MY_CONSTANT"
-		// IL call (Godot.StringName/Godot.NodePath)::op_Implicit(System.String)
-
-		// Which we will replace with
-		// IL ldsfld our_generated_field
-
-		for (int i = 1; i < instructions.Count; i++)
+		for (int i = 0; i < instructions.Count - 1; i++)
 		{
-			if (instructions[i] is not {OpCode.Code: Code.Call} callInstruction)
-				continue;
-			
-			MethodReference calledMethod = (MethodReference)callInstruction.Operand;
-			
-			void TryMakeEdit(Func<string, FieldDefinition> fieldGetter, string typeName)
+			// We are looking for this pattern here:
+			// IL ldstr "MY_CONSTANT"
+			// IL call (Godot.StringName/Godot.NodePath)::op_Implicit(System.String)
+			if (instructions[i] is {OpCode.Code: Code.Ldstr} ldstrInstruction)
 			{
-				if (instructions[i - 1] is not {OpCode.Code: Code.Ldstr} ldstrInstruction)
+				if (instructions[i + 1] is not {OpCode.Code: Code.Call} callInstruction)
+					continue;
+				MethodReference calledMethod = (MethodReference)callInstruction.Operand;
+
+				if (IsStringToStringNameImplicitOp(calledMethod))
 				{
-					if (Config.WarnOnNonConstantImplicitOperator && Config.Logger != null)
-					{
-						string warningMessage = $"{typeName} implicit operator with non-constant string found. Consider using 'new {typeName}' for clarity instead.";
-
-						if (GetClosestSequencePoint(method.DebugInformation.SequencePoints, callInstruction) is SequencePoint sequencePoint)
-						{
-							Config.Logger.LogWarning(sequencePoint.Document.Url, sequencePoint.StartLine, sequencePoint.StartColumn, sequencePoint.EndLine, sequencePoint.EndColumn, warningMessage);
-						}
-						else
-						{
-							Config.Logger.LogWarning($"`{method}`: {warningMessage}");
-						}
-					}
-					return;
+					directConversionsToPatch.Add((ldstrInstruction, CacheTypesEmitter.AddStringName((string)ldstrInstruction.Operand)));
 				}
-				// Mono.Cecil has a bug where if you replace an instruction, branches that point
-				// to the previous Instruction object are not updated. This will lead to the corruption of the
-				// method body when rebuilding the assembly
-				// The easiest and fastest way to circumvent this is to directly edit the fields
-				// of the Instruction object so as not to invalidate the reference.
-				ldstrInstruction.OpCode = OpCodes.Ldsfld;
-				ldstrInstruction.Operand = fieldGetter((string)ldstrInstruction.Operand);
-				callInstruction.OpCode = OpCodes.Nop;
-				callInstruction.Operand = null;
+				else if (IsStringToNodePathImplicitOp(calledMethod))
+				{
+					directConversionsToPatch.Add((ldstrInstruction, CacheTypesEmitter.AddNodePath((string)ldstrInstruction.Operand)));
+				}
 			}
+			/*
+			 * However, patching this pattern would yield invalid CIL if branching is involved.
+			 * For example `StringName x = GetBool() ? "abc" : "def";`
+			 * would yield this CIL:
+			 * IL_01: call bool GetBool()
+			 * IL_02: brtrue.s IL_05
 
-			if (IsStringToStringNameImplicitOp(calledMethod))
+			 * IL_03: ldstr "def"
+			 * IL_04: br.s IL_06
+
+			 * IL_05: ldstr "abc"
+			 * IL_06: call class Godot.StringName Godot.StringName::op_Implicit(string)
+			 * IL_07: (Rest of the function. At this point a single StringName was pushed to the stack.)
+
+			 * Notice how there is a single conversion call and both paths flow into it.
+
+			 * The `call` at IL_06 would be patched out, and the "false" path at IL_03 would leave a
+			 * string on the stack where a StringName is expected.
+
+			 * We will ensure that if an unconditional branch is preceeded by a `ldstr`,
+			 * and that the branch target is a conversion method, said `ldstr` will be cached
+			 * and the branch will point to the instruction after the `call`.
+			 */
+			else if (instructions[i] is
+				{
+					OpCode.FlowControl: FlowControl.Branch,
+					Operand: Instruction
+					{
+						OpCode.Code: Code.Call,
+						Operand: MethodReference methodThatWillBeBranchedTo
+					} pointedCallInstruction
+				} branchInstruction)
 			{
-				TryMakeEdit(operand => CacheTypesEmitter.AddStringName(operand), "StringName");
-			}
-			else if (IsStringToNodePathImplicitOp(calledMethod))
-			{
-				TryMakeEdit(operand => CacheTypesEmitter.AddNodePath(operand), "NodePath");
+				if (IsStringToStringNameImplicitOp(methodThatWillBeBranchedTo))
+				{
+					TryPatchBranch(CacheTypesEmitter.AddStringName);
+				}
+				else if (IsStringToNodePathImplicitOp(methodThatWillBeBranchedTo))
+				{
+					TryPatchBranch(CacheTypesEmitter.AddNodePath);
+				}
+
+				void TryPatchBranch(Func<string, FieldDefinition> fieldGetter)
+				{
+					Instruction instBeforeTheBranch = instructions[i - 1];
+					if (instBeforeTheBranch is {OpCode.Code: Code.Ldstr})
+					{
+						ReplaceInstruction(instBeforeTheBranch, OpCodes.Ldsfld, fieldGetter((string)instBeforeTheBranch.Operand));
+						// Point the branch to the instruction that follows the `call op_Implicit`
+						branchInstruction.Operand = pointedCallInstruction.Next;
+					}
+					else if (pointedCallInstruction.Previous.OpCode == OpCodes.Ldstr)
+					{
+						// If a `call op_Implicit` is preceded by a `ldstr`, it will be patched out.
+						// We will therefore keep the conversion in this path
+						// by inserting it before the branch.
+						instructions.Insert(i, Instruction.Create(OpCodes.Call, methodThatWillBeBranchedTo));
+						branchInstruction.Operand = pointedCallInstruction.Next;
+						i++;
+					}
+				}
 			}
 		}
+
+		foreach ((Instruction instruction, FieldReference field) in directConversionsToPatch)
+		{
+			ReplaceInstruction(instruction, OpCodes.Ldsfld, field);
+			// Patch out the call instruction that follows
+			ReplaceInstruction(instruction.Next, OpCodes.Nop, null);
+		}
+		directConversionsToPatch.Clear();
 	}
 
-	/// <summary>
-	/// Gets the nearest sequence point (AKA a marker of a location in a source file)
-	/// from the given instruction. Looks for a sequence point upwards.
-	/// </summary>
-	/// <returns>The closest sequence point, <c>null</c> if none was found.</returns>
-	SequencePoint? GetClosestSequencePoint(Collection<SequencePoint>? sequencePoints, Instruction instruction)
+	void ReplaceInstruction(Instruction instruction, OpCode opCode, object? operand)
 	{
-		if (sequencePoints == null)
-		{
-			return null;
-		}
-
-		SequencePoint? closest = null;
-		int currentClosestDistance = int.MaxValue;
-		int instructionOffset = instruction.Offset;
-
-		foreach (SequencePoint sequencePoint in sequencePoints)
-		{
-			if (sequencePoint.Offset == instructionOffset)
-			{
-				return sequencePoint;
-			}
-			int diff = instructionOffset - sequencePoint.Offset;
-			if (diff > 0 && diff < currentClosestDistance)
-			{
-				currentClosestDistance = diff;
-				closest = sequencePoint;
-			}
-		}
-
-		return closest;
+		// Mono.Cecil has an oversight where if you replace an instruction, branches that point
+		// to the previous Instruction object are not updated. This will lead to the corruption of the
+		// method body when rebuilding the assembly
+		// The easiest and fastest way to circumvent this is to directly edit the fields
+		// of the Instruction object so as not to invalidate the reference.
+		instruction.OpCode = opCode;
+		instruction.Operand = operand;
 	}
 
 	static bool IsStringToStringNameImplicitOp(MethodReference method)
