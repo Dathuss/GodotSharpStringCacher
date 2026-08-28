@@ -8,7 +8,7 @@ static class Program
 
 	static void PrintUsage()
 	{
-		Console.WriteLine($"Usage: {Environment.GetCommandLineArgs()[0]} <in_file> <out_file> [--long-names] [--no-warn-non-constant-implicit-operator]");
+		Console.WriteLine($"Usage: {Environment.GetCommandLineArgs()[0]} <in_file> <out_file> [--long-names]");
 	}
 
 	static Params? ParseParams(string[] args, LoggerBase log)
@@ -16,14 +16,11 @@ static class Program
 		string? inFile = null;
 		string? outFile = null;
 		bool longNames = false;
-		bool warnOnNonConstantImplicitOperator = true;
 
 		foreach (string arg in args)
 		{
 			if (arg == "--long-names")
 				longNames = true;
-			else if (arg == "--no-warn-non-constant-implicit-operator")
-				warnOnNonConstantImplicitOperator = false;
 			else if (inFile == null)
 				inFile = arg;
 			else if (outFile == null)
@@ -40,7 +37,7 @@ static class Program
 			PrintUsage();
 			return null;
 		}
-		return new Params(inFile, outFile, new Config(longNames, warnOnNonConstantImplicitOperator, log));
+		return new Params(inFile, outFile, new Config(longNames, log));
 	}
 
 	public static void Main(string[] args)

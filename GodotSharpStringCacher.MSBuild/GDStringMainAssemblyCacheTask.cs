@@ -39,7 +39,7 @@ public class GDStringMainAssemblyCacheTask : Task
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
 		Logger log = new(this);
-		Config defaultConfig = new(UseLongNamesByDefault, false, log);
+		Config defaultConfig = new(UseLongNamesByDefault, log);
 
 		string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
 		if (string.IsNullOrEmpty(godotSharp))
