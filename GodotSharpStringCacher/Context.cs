@@ -202,11 +202,14 @@ public class Context : IDisposable
 
 	/// <summary>
 	/// Patches CIL patterns of the form
+	/// 
 	/// <code>
 	/// IL ldstr "MY_CONSTANT"
 	/// IL call (Godot.StringName/Godot.NodePath)::op_Implicit(System.String)
 	/// </code>
-	/// To
+	/// 
+	/// to
+	/// 
 	/// <code>
 	/// ldsfld |our_generated_field|
 	/// </code>
@@ -257,10 +260,10 @@ public class Context : IDisposable
 	}
 
 	/// <summary>
-	/// The first patch. Targets branches that point to an implicit operator call.<br/>
+	/// The first patch. Patches branches that point to an implicit operator call.<br/>
 	/// 
 	/// This is important as <see cref="PatchSequentialLdstrs"/> would yield invalid CIL in the case of,
-	/// for example a ternary operator of the form:
+	/// for example, a ternary operator of the form:
 	/// <list type="bullet">
 	///   <item><c>StringName x = GetBool() ? "abc" : "def"</c></item>
 	///   <item><c>NodePath y = GetBool() ? "abc" : GetString()</c></item>
@@ -276,7 +279,7 @@ public class Context : IDisposable
 	/// IL_06: call class Godot.StringName Godot.StringName::op_Implicit(string)
 	/// IL_07: (Rest of the function. At this point a single StringName was pushed to the stack.)
 	/// </code>
-	/// Notice how there is a single conversion call and both pathes flow into it.<br/>
+	/// Notice how there is a single conversion call (<c>IL_06</c>) and both paths execute it.<br/><br/>
 	/// 
 	/// <c>PatchSequentialLdstrs</c> would replace the <c>call</c> at <c>IL_06</c> with
 	/// a <c>nop</c>, leaving <c>IL_04</c> to jump forward and leave a <c>string</c>
@@ -294,6 +297,8 @@ public class Context : IDisposable
 	{
 		for (int i = 1; i < instructions.Count; i++)
 		{
+			// We are looking for instructions that goto an implicit conversion (string -> StringName/NodePath),
+			// so ensure the current instruction is a goto to a method call
 			if (instructions[i] is not
 				{
 					OpCode.FlowControl: FlowControl.Branch,
@@ -309,25 +314,32 @@ public class Context : IDisposable
 			
 			void TryPatchBranch(Func<string, FieldDefinition> fieldGetter)
 			{
-				if (instructions[i - 1] is {OpCode.Code: Code.Ldstr} ldstrInstruction)
+				// If we have a `load string` followed by a branch to an implicit conversion,
+				// replace this with a `load field` followed by a branch to the instruction after the implicit conversion.
+				if (instructions[i - 1] is { OpCode.Code: Code.Ldstr } ldstrInstruction)
 				{
 					Config.Logger?.LogWarning($"replacing {ldstrInstruction}");
+
 					ReplaceInstruction(ldstrInstruction, OpCodes.Ldsfld, fieldGetter((string)ldstrInstruction.Operand));
-					// Point the branch to the next instruction, because if the other path does not
-					// get its `call` removed, it will create invalid CIL.
+
 					branchInstruction.Operand = callInstruction.Next;
+
+					return;
 				}
-				else if (callInstruction.Previous.OpCode == OpCodes.Ldstr)
+
+				// If we have a non-constant string followed by a branch to an implicit conversion,
+				// then we can't cache it.
+				// If that implicit conversion is preceded by a `load string`,
+				// then it will be replaced with a `load field`,
+				// so insert an extra implicit conversion before the branch and make the branch skip the implicit conversion.
+				if (callInstruction.Previous.OpCode == OpCodes.Ldstr)
 				{
-					// In this case, PatchSequentialLdstrs will patch out the call. Therefore we insert a
-					// call to the implicit operator before the branch and move the branch to the next
-					// instruction.
-					// It would be better if the user added an explicit constructor, but it's not a
-					// reason to generate invalid CIL.
 					Config.Logger?.LogWarning($"prepending to {branchInstruction}");
+
 					instructions.Insert(i, Instruction.Create(OpCodes.Call, calledMethod));
-					branchInstruction.Operand = callInstruction.Next;
 					i++;
+
+					branchInstruction.Operand = callInstruction.Next;
 				}
 			}
 
