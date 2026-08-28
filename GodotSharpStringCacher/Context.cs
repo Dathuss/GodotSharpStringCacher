@@ -203,9 +203,9 @@ public class Context : IDisposable
 			// We are looking for this pattern here:
 			// IL ldstr "MY_CONSTANT"
 			// IL call (Godot.StringName/Godot.NodePath)::op_Implicit(System.String)
-			if (instructions[i] is {OpCode.Code: Code.Ldstr} ldstrInstruction)
+			if (instructions[i] is { OpCode.Code: Code.Ldstr } ldstrInstruction)
 			{
-				if (instructions[i + 1] is not {OpCode.Code: Code.Call} callInstruction)
+				if (instructions[i + 1] is not { OpCode.Code: Code.Call } callInstruction)
 					continue;
 				MethodReference calledMethod = (MethodReference)callInstruction.Operand;
 
@@ -220,23 +220,23 @@ public class Context : IDisposable
 			}
 			/*
 			 * However, patching this pattern would yield invalid CIL if branching is involved.
-			 * For example `StringName x = GetBool() ? "abc" : "def";`
-			 * would yield this CIL:
+			 * For example, `StringName x = GetBool() ? "abc" : "def";` would yield this CIL:
+			
 			 * IL_01: call bool GetBool()
 			 * IL_02: brtrue.s IL_05
 
 			 * IL_03: ldstr "def"
 			 * IL_04: br.s IL_06
-
+			
 			 * IL_05: ldstr "abc"
 			 * IL_06: call class Godot.StringName Godot.StringName::op_Implicit(string)
 			 * IL_07: (Rest of the function. At this point a single StringName was pushed to the stack.)
-
+			
 			 * Notice how there is a single conversion call and both paths flow into it.
 
 			 * The `call` at IL_06 would be patched out, and the "false" path at IL_03 would leave a
 			 * string on the stack where a StringName is expected.
-
+			
 			 * We will ensure that if an unconditional branch is preceeded by a `ldstr`,
 			 * and that the branch target is a conversion method, said `ldstr` will be cached
 			 * and the branch will point to the instruction after the `call`.
@@ -263,20 +263,25 @@ public class Context : IDisposable
 				void TryPatchBranch(Func<string, FieldDefinition> fieldGetter)
 				{
 					Instruction instBeforeTheBranch = instructions[i - 1];
-					if (instBeforeTheBranch is {OpCode.Code: Code.Ldstr})
+
+					if (instBeforeTheBranch.OpCode.Code == Code.Ldstr)
 					{
+						// Here, we have a `ldstr` followed by a branch to a `call op_Implicit`,
+						// so we can patch the `ldstr` and point the branch to the instruction after the `call op_Implicit`.
+
 						ReplaceInstruction(instBeforeTheBranch, OpCodes.Ldsfld, fieldGetter((string)instBeforeTheBranch.Operand));
-						// Point the branch to the instruction that follows the `call op_Implicit`
 						branchInstruction.Operand = pointedCallInstruction.Next;
 					}
-					else if (pointedCallInstruction.Previous.OpCode == OpCodes.Ldstr)
+					else if (pointedCallInstruction.Previous.OpCode.Code == Code.Ldstr)
 					{
-						// If a `call op_Implicit` is preceded by a `ldstr`, it will be patched out.
-						// We will therefore keep the conversion in this path
-						// by inserting it before the branch.
+						// Here, we have a non-constant string followed by a branch to a `call op_Implicit`,
+						// where the `call op_Implicit` is preceded by a `ldstr` and will be patched out,
+						// so we need to insert another `call op_Implicit` before the branch
+						// and point the branch to the instruction after the original `call op_Implicit`.
+
 						instructions.Insert(i, Instruction.Create(OpCodes.Call, methodThatWillBeBranchedTo));
-						branchInstruction.Operand = pointedCallInstruction.Next;
 						i++;
+						branchInstruction.Operand = pointedCallInstruction.Next;
 					}
 				}
 			}
@@ -284,8 +289,9 @@ public class Context : IDisposable
 
 		foreach ((Instruction instruction, FieldReference field) in directConversionsToPatch)
 		{
+			// Replace the `load string` instruction with a `load field` instruction
 			ReplaceInstruction(instruction, OpCodes.Ldsfld, field);
-			// Patch out the call instruction that follows
+			// Replace the `call op_Implicit` instruction with a `no-op` instruction
 			ReplaceInstruction(instruction.Next, OpCodes.Nop, null);
 		}
 		directConversionsToPatch.Clear();
