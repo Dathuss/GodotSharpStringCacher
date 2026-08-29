@@ -1,5 +1,6 @@
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Mono.Collections.Generic;
 
 namespace GodotSharpStringCacher;
@@ -23,8 +24,14 @@ public class Context : IDisposable
 
 	internal readonly CacheTypesEmitter CacheTypesEmitter;
 
+	readonly record struct LdstrToPatch(
+		Instruction Ldstr,
+		Func<string, FieldReference> FieldCacher,
+		Instruction TargetOperatorCall);
+
 	// Only used inside MatchAndPatch, avoids unecessary allocation
-	readonly List<(Instruction, FieldReference)> directConversionsToPatch = [];
+	readonly List<LdstrToPatch> ldstrsToPatch = [];
+	readonly HashSet<Instruction> directConversionsThatCannotBeRemoved = [];
 
 	public Context(Config? config = null)
 	{
@@ -211,90 +218,107 @@ public class Context : IDisposable
 
 				if (IsStringToStringNameImplicitOp(calledMethod))
 				{
-					directConversionsToPatch.Add((ldstrInstruction, CacheTypesEmitter.AddStringName((string)ldstrInstruction.Operand)));
+					ldstrsToPatch.Add(new(ldstrInstruction, CacheTypesEmitter.AddStringName, callInstruction));
 				}
 				else if (IsStringToNodePathImplicitOp(calledMethod))
 				{
-					directConversionsToPatch.Add((ldstrInstruction, CacheTypesEmitter.AddNodePath((string)ldstrInstruction.Operand)));
+					ldstrsToPatch.Add(new(ldstrInstruction, CacheTypesEmitter.AddNodePath, callInstruction));
 				}
 			}
-			/*
-			 * However, patching this pattern would yield invalid CIL if branching is involved.
-			 * For example, `StringName x = GetBool() ? "abc" : "def";` would yield this CIL:
-			
-			 * IL_01: call bool GetBool()
-			 * IL_02: brtrue.s IL_05
-
-			 * IL_03: ldstr "def"
-			 * IL_04: br.s IL_06
-			
-			 * IL_05: ldstr "abc"
-			 * IL_06: call class Godot.StringName Godot.StringName::op_Implicit(string)
-			 * IL_07: (Rest of the function. At this point a single StringName was pushed to the stack.)
-			
-			 * Notice how there is a single conversion call and both paths flow into it.
-
-			 * The `call` at IL_06 would be patched out, and the "false" path at IL_03 would leave a
-			 * string on the stack where a StringName is expected.
-			
-			 * We will ensure that if an unconditional branch is preceeded by a `ldstr`,
-			 * and that the branch target is a conversion method, said `ldstr` will be cached
-			 * and the branch will point to the instruction after the `call`.
-			 */
-			else if (instructions[i] is
-				{
-					OpCode.FlowControl: FlowControl.Branch,
-					Operand: Instruction
+			// We are looking for unconditional branches that point to a `call op_Implicit`.
+			// Any `ldstr` that jumps to a `call op_Implicit` will be cached.
+			// Additionally, we need to determine if this call can be safely removed.
+			// It can safely be removed if all instructions that flow to it
+			// (either directly or via an unconditional branch) are `ldstr`s.
+			else if (instructions[i] is { OpCode.FlowControl: FlowControl.Branch } branchInstruction)
+			{
+				if (FollowBranch(branchInstruction) is
 					{
 						OpCode.Code: Code.Call,
 						Operand: MethodReference methodThatWillBeBranchedTo
-					} pointedCallInstruction
-				} branchInstruction)
-			{
-				if (IsStringToStringNameImplicitOp(methodThatWillBeBranchedTo))
+					} followedInstruction)
 				{
-					TryPatchBranch(CacheTypesEmitter.AddStringName);
-				}
-				else if (IsStringToNodePathImplicitOp(methodThatWillBeBranchedTo))
-				{
-					TryPatchBranch(CacheTypesEmitter.AddNodePath);
+					if (IsStringToStringNameImplicitOp(methodThatWillBeBranchedTo))
+					{
+						AnalyzeBranch(CacheTypesEmitter.AddStringName);
+					}
+					else if (IsStringToNodePathImplicitOp(methodThatWillBeBranchedTo))
+					{
+						AnalyzeBranch(CacheTypesEmitter.AddNodePath);
+					}
 				}
 
-				void TryPatchBranch(Func<string, FieldDefinition> fieldGetter)
+				void AnalyzeBranch(Func<string, FieldDefinition> fieldCacher)
 				{
 					Instruction instBeforeTheBranch = instructions[i - 1];
 
 					if (instBeforeTheBranch.OpCode.Code == Code.Ldstr)
 					{
-						// Here, we have a `ldstr` followed by a branch to a `call op_Implicit`,
-						// so we can patch the `ldstr` and point the branch to the instruction after the `call op_Implicit`.
-
-						ReplaceInstruction(instBeforeTheBranch, OpCodes.Ldsfld, fieldGetter((string)instBeforeTheBranch.Operand));
-						branchInstruction.Operand = pointedCallInstruction.Next;
+						// Here, we have a `ldstr` followed by a branch to a `call op_Implicit`.
+						ldstrsToPatch.Add(new(instBeforeTheBranch, fieldCacher, followedInstruction));
+						if (followedInstruction.Previous.OpCode != OpCodes.Ldstr)
+						{
+							// If the call to `op_Implicit` is not directly preceded by a `ldstr`,
+							// it cannot be safely removed.
+							directConversionsThatCannotBeRemoved.Add(followedInstruction);
+						}
 					}
-					else if (pointedCallInstruction.Previous.OpCode.Code == Code.Ldstr)
+					else
 					{
-						// Here, we have a non-constant string followed by a branch to a `call op_Implicit`,
-						// where the `call op_Implicit` is preceded by a `ldstr` and will be patched out,
-						// so we need to insert another `call op_Implicit` before the branch
-						// and point the branch to the instruction after the original `call op_Implicit`.
-
-						instructions.Insert(i, Instruction.Create(OpCodes.Call, methodThatWillBeBranchedTo));
-						i++;
-						branchInstruction.Operand = pointedCallInstruction.Next;
+						// The `call op_Implicit` cannot be safely removed.
+						directConversionsThatCannotBeRemoved.Add(followedInstruction);
 					}
 				}
 			}
 		}
 
-		foreach ((Instruction instruction, FieldReference field) in directConversionsToPatch)
+		if (directConversionsThatCannotBeRemoved.Count == 0)
 		{
-			// Replace the `load string` instruction with a `load field` instruction
-			ReplaceInstruction(instruction, OpCodes.Ldsfld, field);
-			// Replace the `call op_Implicit` instruction with a `no-op` instruction
-			ReplaceInstruction(instruction.Next, OpCodes.Nop, null);
+			// Most functions are in this case
+			foreach (LdstrToPatch entry in ldstrsToPatch)
+			{
+				// Replace the `load string` instruction with a `load field` instruction
+				ReplaceInstruction(entry.Ldstr, OpCodes.Ldsfld, entry.FieldCacher((string)entry.Ldstr.Operand));
+				// Replace the `call op_Implicit` instruction with a `no-op` instruction
+				ReplaceInstruction(entry.TargetOperatorCall, OpCodes.Nop, null);
+			}
 		}
-		directConversionsToPatch.Clear();
+		else
+		{
+			method.Body.SimplifyMacros();
+			foreach (LdstrToPatch entry in ldstrsToPatch)
+			{
+				// Replace the `load string` instruction with a `load field` instruction
+				ReplaceInstruction(entry.Ldstr, OpCodes.Ldsfld, entry.FieldCacher((string)entry.Ldstr.Operand));
+				if (directConversionsThatCannotBeRemoved.Contains(entry.TargetOperatorCall))
+				{
+					// Jump over the implicit operator call
+					instructions.Insert(
+						instructions.IndexOf(entry.Ldstr) + 1,
+						Instruction.Create(OpCodes.Br, entry.TargetOperatorCall.Next));
+				}
+				else
+				{
+					// Safely replace the `call op_Implicit` instruction with a `no-op` instruction
+					ReplaceInstruction(entry.TargetOperatorCall, OpCodes.Nop, null);
+				}
+			}
+			method.Body.OptimizeMacros();
+			directConversionsThatCannotBeRemoved.Clear();
+		}
+		ldstrsToPatch.Clear();
+	}
+
+	/// <summary>
+	/// Follow unconditional branches until a different instruction is found.
+	/// </summary>
+	Instruction FollowBranch(Instruction branchInstruction)
+	{
+		Instruction result = branchInstruction;
+		do
+			result = (Instruction)result.Operand;
+		while (result.OpCode.FlowControl == FlowControl.Branch);
+		return result;
 	}
 
 	void ReplaceInstruction(Instruction instruction, OpCode opCode, object? operand)
