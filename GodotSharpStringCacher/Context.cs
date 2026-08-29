@@ -254,18 +254,21 @@ public class Context : IDisposable
 
 					if (instBeforeTheBranch.OpCode.Code == Code.Ldstr)
 					{
-						// Here, we have a `ldstr` followed by a branch to a `call op_Implicit`.
+						// Here, we have a `ldstr` followed by a branch to a `call op_Implicit`,
+						// so we can patch the `ldstr` later.
 						ldstrsToPatch.Add(new(instBeforeTheBranch, fieldCacher, followedInstruction));
+
 						if (followedInstruction.Previous.OpCode != OpCodes.Ldstr)
 						{
-							// If the call to `op_Implicit` is not directly preceded by a `ldstr`,
-							// it cannot be safely removed.
+							// Here, the `call op_Implicit` is not directly preceded by a `ldstr`,
+							// so the `call op_Implicit` cannot be safely removed.
 							directConversionsThatCannotBeRemoved.Add(followedInstruction);
 						}
 					}
 					else
 					{
-						// The `call op_Implicit` cannot be safely removed.
+						// Here, we have a non-constant string followed by a branch to a `call op_Implicit`,
+						// so the `call op_Implicit` cannot be safely removed.
 						directConversionsThatCannotBeRemoved.Add(followedInstruction);
 					}
 				}
@@ -290,9 +293,11 @@ public class Context : IDisposable
 			{
 				// Replace the `load string` instruction with a `load field` instruction
 				ReplaceInstruction(entry.Ldstr, OpCodes.Ldsfld, entry.FieldCacher((string)entry.Ldstr.Operand));
+
 				if (directConversionsThatCannotBeRemoved.Contains(entry.TargetOperatorCall))
 				{
-					// Jump over the implicit operator call
+					// Insert a branch after the `load field` instruction
+					// to jump over the `call op_Implicit`
 					instructions.Insert(
 						instructions.IndexOf(entry.Ldstr) + 1,
 						Instruction.Create(OpCodes.Br, entry.TargetOperatorCall.Next));
