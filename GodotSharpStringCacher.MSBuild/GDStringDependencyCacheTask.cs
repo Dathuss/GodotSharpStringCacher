@@ -84,7 +84,7 @@ public class GDStringDependencyCacheTask : Task
 				else continue;
 
 				Logger log = new(this);
-				Config defaultConfig = new(UseLongNamesByDefault, false, log);
+				Config defaultConfig = new(UseLongNamesByDefault, log);
 				if (ctx == null)
 				{
 					string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
@@ -182,7 +182,6 @@ public class GDStringDependencyCacheTask : Task
 
 		return new Config(
 			GetBool("LongNames", defaultConfig.UseLongNames),
-			false,
 			defaultConfig.Logger);
 	}
 }

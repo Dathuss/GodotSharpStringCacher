@@ -32,7 +32,7 @@ public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 					Name: string ctorTypeName and ("StringName" or "NodePath")
 				},
 				Arguments: ImmutableArray<IArgumentOperation> args
-			} && args.Length == 1 && args[0].Value.ConstantValue.Value is string)
+			} && args.Length == 1 && CheckArgumentIsConstant(args[0].Value))
 		{
 			context.ReportDiagnostic(Diagnostic.Create(
 				Common.StringTypeConstructorWithConstantStringRule,
@@ -40,5 +40,18 @@ public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 				ImmutableDictionary.CreateRange<string, string?>([new("typeName", ctorTypeName)]),
 				ctorTypeName));
 		}
+	}
+
+	static bool CheckArgumentIsConstant(IOperation operation)
+	{
+		if (operation.ConstantValue.Value is string)
+			return true;
+		// Check if both paths of a ternary operator are constant
+		if (operation is IConditionalOperation { WhenFalse: not null } conditionalOperation)
+		{
+			return conditionalOperation.WhenTrue.ConstantValue.Value is string
+				&& conditionalOperation.WhenFalse.ConstantValue.Value is string;
+		}
+		return false;
 	}
 }
