@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -26,15 +26,38 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 				Type:
 				{
 					ContainingAssembly.Name: "GodotSharp",
-					Name: string conversionTypeName and ("StringName" or "NodePath"),
+					Name: string targetTypeName and ("StringName" or "NodePath"),
 				}
-			})
+			} conversion)
 		{
-			context.ReportDiagnostic(Diagnostic.Create(
-				Common.StringTypeImplicitOperatorWithNonConstantStringRule,
-				context.Operation.Syntax.GetLocation(),
-				ImmutableDictionary.CreateRange<string, string?>([new("typeName", conversionTypeName)]),
-				conversionTypeName));
+			AnalyzeNestedOperation(context, targetTypeName, conversion.Operand);
 		}
+	}
+	void AnalyzeNestedOperation(OperationAnalysisContext context, string targetTypeName, IOperation operation)
+	{
+		// Check branches of a ternary operator
+		if (operation is IConditionalOperation conditionalValue && conditionalValue.WhenFalse is not null)
+		{
+			if (conditionalValue.WhenTrue.ConstantValue.HasValue && conditionalValue.WhenFalse.ConstantValue.HasValue)
+			{
+				return;
+			}
+			else if (conditionalValue.WhenTrue.ConstantValue.HasValue)
+			{
+				AnalyzeNestedOperation(context, targetTypeName, conditionalValue.WhenFalse);
+				return;
+			}
+			else if (conditionalValue.WhenFalse.ConstantValue.HasValue)
+			{
+				AnalyzeNestedOperation(context, targetTypeName, conditionalValue.WhenTrue);
+				return;
+			}
+		}
+
+		context.ReportDiagnostic(Diagnostic.Create(
+			Common.StringTypeImplicitOperatorWithNonConstantStringRule,
+			operation.Syntax.GetLocation(),
+			ImmutableDictionary.CreateRange<string, string?>([new("typeName", targetTypeName)]),
+			targetTypeName));
 	}
 }
