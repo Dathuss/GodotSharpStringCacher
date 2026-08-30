@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Composition;
 using System.Linq;
@@ -16,7 +17,12 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 {
 	public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(Common.StringTypeConstructorWithConstantStringRule.Id);
 
-	public override FixAllProvider? GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
+	// We cannot use WellKnownFixAllProviders.BatchFixer because it does not work when
+	// diagnostics have spans that overlap, which is possible with this code rule
+	// because we handle ternaries.
+	// https://github.com/dotnet/roslyn/blob/main/docs/analyzers/FixAllProvider.md#limitations-of-the-batchfixer
+	private static readonly FixAllProvider _fixAll = FixAllProvider.Create(FixAllAsync);
+	public override FixAllProvider? GetFixAllProvider() => _fixAll;
 
 	public override async Task RegisterCodeFixesAsync(CodeFixContext context)
 	{
@@ -43,7 +49,7 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 			CodeAction.Create(
 				title: "Remove constructor",
 				createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, objectCreationExpression, ct),
-				equivalenceKey: $"GDStringTypeRemoveCtor"),
+				equivalenceKey: "GDStringTypeRemoveCtor"),
 			context.Diagnostics
 		);
 	}
@@ -54,6 +60,31 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 		ExpressionSyntax argumentExpression = objectCreationExpression.ArgumentList!.Arguments[0].Expression;
 		SyntaxNode oldRoot = (await document.GetSyntaxRootAsync(ct).ConfigureAwait(false))!;
 		SyntaxNode newRoot = oldRoot.ReplaceNode(objectCreationExpression, argumentExpression);
+
+		return document.WithSyntaxRoot(newRoot);
+	}
+
+	static async Task<Document?> FixAllAsync(FixAllContext context, Document document, ImmutableArray<Diagnostic> diagnostics)
+	{
+		SyntaxNode? root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+		if (root == null)
+			return null;
+
+		List<BaseObjectCreationExpressionSyntax> expressionsToReplace = new(diagnostics.Length);
+
+		foreach (Diagnostic diagnostic in diagnostics)
+		{
+			SyntaxNode syntaxNode = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
+			if (syntaxNode is BaseObjectCreationExpressionSyntax toRemove)
+			{
+				expressionsToReplace.Add(toRemove);
+			}
+		}
+
+		SyntaxNode newRoot = root.ReplaceNodes(
+			expressionsToReplace,
+			(_, current) => current.ArgumentList!.Arguments[0].Expression
+		);
 
 		return document.WithSyntaxRoot(newRoot);
 	}
