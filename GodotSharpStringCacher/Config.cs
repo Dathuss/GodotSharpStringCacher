@@ -1,6 +1,6 @@
 namespace GodotSharpStringCacher;
 
-public record class Config(bool UseLongNames, LoggerBase? Logger)
+public record class Config(bool UseLongNames)
 {
-	public static readonly Config Default = new(false, null);
+	public static readonly Config Default = new(false);
 };

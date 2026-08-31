@@ -13,7 +13,7 @@ namespace GodotSharpStringCacher.MSBuild;
 
 internal static class Common
 {
-	public static string? GetGodotSharpFromReferencePath(ITaskItem[] referencePath, Logger log)
+	public static string? GetGodotSharpFromReferencePath(ITaskItem[] referencePath, TaskLoggingHelper log)
 	{
 		foreach (ITaskItem reference in referencePath)
 		{
@@ -29,7 +29,7 @@ internal static class Common
 		return null;
 	}
 
-	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, Logger log, out bool isPdbFileOutputted)
+	public static bool DoCache(Context ctx, string inputPath, string outputPath, string assemblyName, TaskLoggingHelper log, out bool isPdbFileOutputted)
 	{
 		isPdbFileOutputted = false;
 		log.LogMessage($"{assemblyName}: Caching Godot strings...");

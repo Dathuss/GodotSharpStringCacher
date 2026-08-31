@@ -38,10 +38,9 @@ public class GDStringMainAssemblyCacheTask : Task
 	public override bool Execute()
 	{
 		string intermediateDir = Common.GetAndCreateCacheDir(IntermediateOutputPath);
-		Logger log = new(this);
-		Config defaultConfig = new(UseLongNamesByDefault, log);
+		Config defaultConfig = new(UseLongNamesByDefault);
 
-		string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
+		string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
 		if (string.IsNullOrEmpty(godotSharp))
 			return false;
 		
@@ -59,7 +58,7 @@ public class GDStringMainAssemblyCacheTask : Task
 
 		if (File.Exists(outputFile) && File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 		{
-			log.LogMessage($"Main assembly up to date");
+			Log.LogMessage($"Main assembly up to date");
 
 			if (File.Exists(pdbFile))
 			{
@@ -74,7 +73,7 @@ public class GDStringMainAssemblyCacheTask : Task
 		using Context ctx = new(defaultConfig);
 
 		ctx.OpenGodotSharp(godotSharp!);
-		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, log, out bool isPdbFileOutputted))
+		if (!Common.DoCache(ctx, IntermediateAssembly.ItemSpec, outputFile, AssemblyName, Log, out bool isPdbFileOutputted))
 		{
 			return false;
 		}

@@ -83,11 +83,10 @@ public class GDStringDependencyCacheTask : Task
 				else if (assemblyNamesToPatch.TryGetValue(fileName, out assemblyTaskItem)) { }
 				else continue;
 
-				Logger log = new(this);
-				Config defaultConfig = new(UseLongNamesByDefault, log);
+				Config defaultConfig = new(UseLongNamesByDefault);
 				if (ctx == null)
 				{
-					string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, log);
+					string? godotSharp = Common.GetGodotSharpFromReferencePath(ReferencePath, Log);
 					if (string.IsNullOrEmpty(godotSharp))
 						return false;
 
@@ -132,7 +131,7 @@ public class GDStringDependencyCacheTask : Task
 
 				if (File.Exists(outputFile) && File.Exists(hashFile) && File.ReadAllText(hashFile) == newHash)
 				{
-					log.LogMessage($"Assembly {fileName} up to date");
+					Log.LogMessage($"Assembly {fileName} up to date");
 
 					if (File.Exists(pdbFile))
 					{
@@ -142,7 +141,7 @@ public class GDStringDependencyCacheTask : Task
 					continue;
 				}
 
-				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, log, out bool isPdbFileOutputted))
+				if (!Common.DoCache(ctx, fullPath, outputFile, fileName, Log, out bool isPdbFileOutputted))
 				{
 					return false;
 				}
@@ -181,7 +180,6 @@ public class GDStringDependencyCacheTask : Task
 		}
 
 		return new Config(
-			GetBool("LongNames", defaultConfig.UseLongNames),
-			defaultConfig.Logger);
+			GetBool("LongNames", defaultConfig.UseLongNames));
 	}
 }
