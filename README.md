@@ -59,7 +59,7 @@ ctx.RunAndSave("input2.dll", "output2.dll", out string? outputPdbFile);
 
 If you want to test without integrating it, compile `GodotSharpStringCacher.Console`. The syntax is:
 ```
-GodotSharpStringCacher.Console <in_file> <out_file> [--long-names]
+GodotSharpStringCacher.Console <in_file> <out_file> [--long-names] [--godotsharp-path=PATH]
 ```
 
 You can browse the resulting assembly and see the results for yourself.
