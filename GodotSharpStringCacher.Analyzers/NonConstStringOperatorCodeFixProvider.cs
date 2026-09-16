@@ -29,7 +29,7 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 		SyntaxNode? root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
 		if (root == null)
 			return;
-		SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync().ConfigureAwait(false);
+		SemanticModel? semanticModel = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
 		if (semanticModel == null)
 			return;
 
@@ -114,7 +114,7 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 		SyntaxNode? root = await document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
 		if (root == null)
 			return null;
-		SemanticModel? semanticModel = await document.GetSemanticModelAsync().ConfigureAwait(false);
+		SemanticModel? semanticModel = await document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
 		if (semanticModel == null)
 			return null;
 
