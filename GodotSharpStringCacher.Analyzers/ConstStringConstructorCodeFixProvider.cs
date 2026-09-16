@@ -58,23 +58,29 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 	static async Task<Document> RemoveExplicitConstructorAsync(Document document, SemanticModel semanticModel,
 		string typeName, BaseObjectCreationExpressionSyntax expressionToBuild, CancellationToken ct)
 	{
+		bool needsUsing = false;
 		ExpressionSyntax replacementExpression = ReplaceExpression(
-			expressionToBuild, semanticModel, typeName, ct);
+			expressionToBuild, semanticModel, typeName, ref needsUsing, ct);
 
 		SyntaxNode oldRoot = (await document.GetSyntaxRootAsync(ct).ConfigureAwait(false))!;
 		SyntaxNode newRoot = oldRoot.ReplaceNode(expressionToBuild, replacementExpression);
-		newRoot = AddUsingIfNecessary(newRoot, semanticModel, typeName, expressionToBuild.SpanStart);
+		if (needsUsing)
+		{
+			newRoot = AddUsingIfNecessary(newRoot, semanticModel, typeName, expressionToBuild.SpanStart);
+		}
 
 		return document.WithSyntaxRoot(newRoot);
 	}
 
-	static ExpressionSyntax ReplaceExpression(BaseObjectCreationExpressionSyntax expressionToReplace, SemanticModel semanticModel, string typeName, CancellationToken ct)
+	static ExpressionSyntax ReplaceExpression(BaseObjectCreationExpressionSyntax expressionToReplace,
+		SemanticModel semanticModel, string typeName, ref bool needsUsing, CancellationToken ct)
 	{
 		ExpressionSyntax replacement = expressionToReplace.ArgumentList!.Arguments[0].Expression;
 
-		TypeInfo typeInfo = semanticModel.GetTypeInfo(expressionToReplace);
+		TypeInfo typeInfo = semanticModel.GetTypeInfo(expressionToReplace, ct);
 
 		if (typeInfo.Type != null && typeInfo.ConvertedType != null && !SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType)) {
+			needsUsing = true;
 			replacement = SyntaxFactory.CastExpression(
 				type: SyntaxFactory.IdentifierName(typeName),
 				expression: replacement
@@ -123,20 +129,26 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 			}
 		}
 
+		bool needsUsing = false;
+
 		SyntaxNode newRoot = root.ReplaceNodes(
 			expressionsToReplace.Keys,
 			(original, current) => ReplaceExpression(
 				current,
 				semanticModel,
 				expressionsToReplace[original],
+				ref needsUsing,
 				context.CancellationToken)
 		);
 
-		newRoot = AddUsingIfNecessary(newRoot,
-			semanticModel,
-			// Since StringName and NodePath are in the same namespace, it doesn't matter which one is chosen
-			diagnostics[0].Properties["typeName"]!,
-			diagnostics[0].Location.SourceSpan.Start);
+		if (needsUsing)
+		{
+			newRoot = AddUsingIfNecessary(newRoot,
+				semanticModel,
+				// Since StringName and NodePath are in the same namespace, it doesn't matter which one is chosen
+				diagnostics[0].Properties["typeName"]!,
+				diagnostics[0].Location.SourceSpan.Start);
+		}
 
 		return document.WithSyntaxRoot(newRoot);
 	}
