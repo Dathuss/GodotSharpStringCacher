@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
@@ -48,18 +49,28 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 		context.RegisterCodeFix(
 			CodeAction.Create(
 				title: "Remove constructor",
-				createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, objectCreationExpression, ct),
+				createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, semanticModel, typeName, objectCreationExpression, ct),
 				equivalenceKey: "GDStringTypeRemoveCtor"),
 			context.Diagnostics
 		);
 	}
 
-	static async Task<Document> RemoveExplicitConstructorAsync(Document document,
-		BaseObjectCreationExpressionSyntax objectCreationExpression, CancellationToken ct)
+	static async Task<Document> RemoveExplicitConstructorAsync(Document document, SemanticModel semanticModel,
+		string typeName, BaseObjectCreationExpressionSyntax objectCreationExpression, CancellationToken ct)
 	{
-		ExpressionSyntax argumentExpression = objectCreationExpression.ArgumentList!.Arguments[0].Expression;
+		ExpressionSyntax replacement = objectCreationExpression.ArgumentList!.Arguments[0].Expression;
+
+		TypeInfo typeInfo = semanticModel.GetTypeInfo(objectCreationExpression);
+
+		if (typeInfo.Type != null && typeInfo.ConvertedType != null && !SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType)) {
+			replacement = SyntaxFactory.CastExpression(
+				type: SyntaxFactory.IdentifierName(typeName),
+				expression: replacement
+			);
+		}
+
 		SyntaxNode oldRoot = (await document.GetSyntaxRootAsync(ct).ConfigureAwait(false))!;
-		SyntaxNode newRoot = oldRoot.ReplaceNode(objectCreationExpression, argumentExpression);
+		SyntaxNode newRoot = oldRoot.ReplaceNode(objectCreationExpression, replacement);
 
 		return document.WithSyntaxRoot(newRoot);
 	}
