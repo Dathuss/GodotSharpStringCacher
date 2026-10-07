@@ -23,4 +23,14 @@ public static class Common
 		isEnabledByDefault: true,
 		description: "Consider removing the constructor in order to statically cache the StringName or NodePath."
 	);
+
+	internal static readonly DiagnosticDescriptor ImplicitStringTypeConversionInForeachRule = new(
+		id: "GDS003",
+		title: "Implicitly allocating StringName/NodePath in foreach loop",
+		messageFormat: "Implicitly allocating {0} in foreach loop, which should be explicit",
+		category: "Usage",
+		defaultSeverity: DiagnosticSeverity.Warning,
+		isEnabledByDefault: true,
+		description: "The way you use the foreach syntax implicitely creates a StringName or NodePath for each iteration. Consider making the allocation explicit or converting the collection beforehand."
+	);
 }
