@@ -13,3 +13,11 @@ GDS001  |  Usage   | Warning  | NonConstStringOperatorAnalyzer
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-----------------
 GDS002  |  Usage   | Warning  | ConstStringConstructorAnalyzer
+
+## Release 3.2.0
+
+### New Rules
+
+Rule ID | Category | Severity | Notes
+--------|----------|----------|-----------------
+GDS003  |  Usage   | Warning  | ForeachImplicitConversionAnalyzer
