@@ -65,8 +65,6 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 		{
 			DeconstructionInfo rootDeconstruction = semanticModel.GetDeconstructionInfo(syntax);
 
-			List<(DeclarationExpressionSyntax, string)>? declarationsToReport = null;
-
 			// See docstring of DeconstructionInfo for detailed info about how it works.
 			// Unfortunately, DeconstructionInfo does not store any Node information, so we
 			// have to manually follow along with the TupleExpressionSyntax
@@ -110,26 +108,17 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 						if (correspondingDeclaration is DeclarationExpressionSyntax declaration)
 						{
 							// Should always happen ?
-							declarationsToReport ??= [];
-							declarationsToReport.Add((declaration, ctorTypeName));
+							context.ReportDiagnostic(Diagnostic.Create(
+								Common.ImplicitStringTypeConversionInForeachRule,
+								declaration.GetLocation(),
+								ImmutableDictionary.CreateRange<string, string?>([new("typeName", ctorTypeName)]),
+								ctorTypeName));
 						}
 					}
 				}
 			}
 
 			HandleDeconstructionTree(rootDeconstruction, tupleConstruction);
-
-			if (declarationsToReport is not null)
-			{
-				foreach ((DeclarationExpressionSyntax decl, string typeName) in declarationsToReport)
-				{
-					context.ReportDiagnostic(Diagnostic.Create(
-						Common.ImplicitStringTypeConversionInForeachRule,
-						decl.GetLocation(),
-						ImmutableDictionary.CreateRange<string, string?>([new("typeName", typeName)]),
-						typeName));
-				}
-			}
 		}
 	}
 }
