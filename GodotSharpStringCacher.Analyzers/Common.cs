@@ -31,6 +31,6 @@ public static class Common
 		category: "Usage",
 		defaultSeverity: DiagnosticSeverity.Warning,
 		isEnabledByDefault: true,
-		description: "The way you use the foreach syntax implicitely creates a StringName or NodePath for each iteration. Consider making the allocation explicit or converting the collection beforehand."
+		description: "This foreach syntax is implicitly allocating a StringName or NodePath for each iteration. Consider making the allocation explicit or converting the enumerable beforehand."
 	);
 }

@@ -1,9 +1,5 @@
-
-using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Linq;
-using System.Reflection.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -30,9 +26,9 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 
 		if (context.Node is ForEachStatementSyntax syntax)
 		{
-			ForEachStatementInfo feInfo = semanticModel.GetForEachStatementInfo(syntax);
+			ForEachStatementInfo forEachInfo = semanticModel.GetForEachStatementInfo(syntax);
 			
-			if (feInfo.ElementType is { SpecialType: SpecialType.System_String })
+			if (forEachInfo.ElementType is { SpecialType: SpecialType.System_String })
 			{
 				TypeInfo type = semanticModel.GetTypeInfo(syntax.Type);
 				if (type.Type is
@@ -69,7 +65,7 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 		{
 			DeconstructionInfo rootDeconstruction = semanticModel.GetDeconstructionInfo(syntax);
 
-			Lazy<List<(DeclarationExpressionSyntax, string)>> declarationsToReport = new(false);
+			List<(DeclarationExpressionSyntax, string)>? declarationsToReport = null;
 
 			// See docstring of DeconstructionInfo for detailed info about how it works.
 			// Unfortunately, DeconstructionInfo does not store any Node information, so we
@@ -85,8 +81,8 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 					}
 					for (int i = 0; i < dec.Nested.Length; i++)
 					{
-						var nestedDeconstruction = dec.Nested[i];
-						var nestedDeclaration = tupleExpression.Arguments[i];
+						DeconstructionInfo nestedDeconstruction = dec.Nested[i];
+						ArgumentSyntax nestedDeclaration = tupleExpression.Arguments[i];
 						HandleDeconstructionTree(nestedDeconstruction, nestedDeclaration.Expression);
 					}
 				}
@@ -114,7 +110,8 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 						if (correspondingDeclaration is DeclarationExpressionSyntax declaration)
 						{
 							// Should always happen ?
-							declarationsToReport.Value.Add((declaration, ctorTypeName));
+							declarationsToReport ??= [];
+							declarationsToReport.Add((declaration, ctorTypeName));
 						}
 					}
 				}
@@ -122,9 +119,9 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 
 			HandleDeconstructionTree(rootDeconstruction, tupleConstruction);
 
-			if (declarationsToReport.IsValueCreated)
+			if (declarationsToReport is not null)
 			{
-				foreach (var (decl, typeName) in declarationsToReport.Value)
+				foreach ((DeclarationExpressionSyntax decl, string typeName) in declarationsToReport)
 				{
 					context.ReportDiagnostic(Diagnostic.Create(
 						Common.ImplicitStringTypeConversionInForeachRule,
