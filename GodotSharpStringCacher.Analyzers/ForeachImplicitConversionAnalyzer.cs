@@ -110,7 +110,7 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 							// Should always happen ?
 							context.ReportDiagnostic(Diagnostic.Create(
 								Common.ImplicitStringTypeConversionInForeachRule,
-								declaration.GetLocation(),
+								declaration.Type.GetLocation(),
 								ImmutableDictionary.CreateRange<string, string?>([new("typeName", ctorTypeName)]),
 								ctorTypeName));
 						}
