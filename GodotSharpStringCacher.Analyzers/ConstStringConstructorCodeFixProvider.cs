@@ -49,24 +49,23 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 		context.RegisterCodeFix(
 			CodeAction.Create(
 				title: "Remove constructor",
-				createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, semanticModel, typeName, objectCreationExpression, ct),
+				createChangedDocument: ct => RemoveExplicitConstructorAsync(context.Document, root, semanticModel, typeName, objectCreationExpression, ct),
 				equivalenceKey: "GDStringTypeRemoveCtor"),
 			context.Diagnostics
 		);
 	}
 
-	static async Task<Document> RemoveExplicitConstructorAsync(Document document, SemanticModel semanticModel,
+	static async Task<Document> RemoveExplicitConstructorAsync(Document document, SyntaxNode oldRoot, SemanticModel semanticModel,
 		string typeName, BaseObjectCreationExpressionSyntax expressionToBuild, CancellationToken ct)
 	{
 		bool needsUsing = false;
 		ExpressionSyntax replacementExpression = ReplaceExpression(
 			expressionToBuild, semanticModel, typeName, ref needsUsing, ct);
 
-		SyntaxNode oldRoot = (await document.GetSyntaxRootAsync(ct).ConfigureAwait(false))!;
 		SyntaxNode newRoot = oldRoot.ReplaceNode(expressionToBuild, replacementExpression);
 		if (needsUsing)
 		{
-			newRoot = AddUsingIfNecessary(newRoot, semanticModel, typeName, expressionToBuild.SpanStart);
+			newRoot = Common.AddUsingIfNecessary(newRoot, semanticModel, typeName, expressionToBuild.SpanStart);
 		}
 
 		return document.WithSyntaxRoot(newRoot);
@@ -88,25 +87,6 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 		}
 
 		return replacement;
-	}
-
-	static SyntaxNode AddUsingIfNecessary(SyntaxNode root, SemanticModel semanticModel, string typeName, int currentSpan)
-	{
-		if (root is CompilationUnitSyntax compilationUnit)
-		{
-			// Check if the symbol "StringName"/"NodePath" is accessible
-			ISymbol? stringTypeSymbol = semanticModel.GetSpeculativeSymbolInfo(
-				currentSpan,
-				SyntaxFactory.IdentifierName(typeName),
-				SpeculativeBindingOption.BindAsTypeOrNamespace
-			).Symbol;
-			if (stringTypeSymbol == null)
-			{
-				// Add "using Godot;" directive
-				root = compilationUnit.AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName("Godot")));
-			}
-		}
-		return root;
 	}
 
 	static async Task<Document?> FixAllAsync(FixAllContext context, Document document, ImmutableArray<Diagnostic> diagnostics)
@@ -143,7 +123,7 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 
 		if (needsUsing)
 		{
-			newRoot = AddUsingIfNecessary(newRoot,
+			newRoot = Common.AddUsingIfNecessary(newRoot,
 				semanticModel,
 				// Since StringName and NodePath are in the same namespace, it doesn't matter which one is chosen
 				diagnostics[0].Properties["typeName"]!,

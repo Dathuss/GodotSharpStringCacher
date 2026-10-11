@@ -41,17 +41,15 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 		context.RegisterCodeFix(
 			CodeAction.Create(
 				title: "Add explicit cast inside foreach block",
-				createChangedDocument: ct => FixForeachAsync(context.Document, typeSyntax, forEachStatement, ct),
+				createChangedDocument: ct => FixForeachAsync(context.Document, root, typeSyntax, forEachStatement, ct),
 				equivalenceKey: "GDStringTypeExplicitForeach"),
 			context.Diagnostics
 		);
 	}
 
-	static async Task<Document> FixForeachAsync(Document document,
+	static async Task<Document> FixForeachAsync(Document document, SyntaxNode oldRoot,
 		TypeSyntax typeSyntax, CommonForEachStatementSyntax forEachStatement, CancellationToken ct)
 	{
-		SyntaxNode oldRoot = (await document.GetSyntaxRootAsync(ct).ConfigureAwait(false))!;
-
 		SyntaxNode newRoot = oldRoot.ReplaceNode(forEachStatement, MoveCastsInLoop(forEachStatement, [typeSyntax]));
 
 		return document.WithSyntaxRoot(newRoot);

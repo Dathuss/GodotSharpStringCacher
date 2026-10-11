@@ -48,21 +48,20 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 		context.RegisterCodeFix(
 			CodeAction.Create(
 				title: "Add explicit constructor",
-				createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, semanticModel, typeName, expression, ct),
+				createChangedDocument: ct => AddExplicitConstructorAsync(context.Document, root, semanticModel, typeName, expression, ct),
 				equivalenceKey: "GDStringTypeAddCtor"),
 			context.Diagnostics
 		);
 	}
 
-	static async Task<Document> AddExplicitConstructorAsync(Document document, SemanticModel semanticModel,
+	static async Task<Document> AddExplicitConstructorAsync(Document document, SyntaxNode oldRoot, SemanticModel semanticModel,
 		string typeName, ExpressionSyntax expressionToBuild, CancellationToken ct)
 	{
 		ExpressionSyntax replacementExpression = ReplaceExpression(
 			expressionToBuild, semanticModel, typeName, ct);
 
-		SyntaxNode oldRoot = (await document.GetSyntaxRootAsync(ct).ConfigureAwait(false))!;
 		SyntaxNode newRoot = oldRoot.ReplaceNode(expressionToBuild, replacementExpression);
-		newRoot = AddUsingIfNecessary(newRoot, semanticModel, typeName, expressionToBuild.SpanStart);
+		newRoot = Common.AddUsingIfNecessary(newRoot, semanticModel, typeName, expressionToBuild.SpanStart);
 
 		return document.WithSyntaxRoot(newRoot);
 	}
@@ -88,25 +87,6 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 			initializer: null
 		);
 		return objectCreationExpression;
-	}
-
-	static SyntaxNode AddUsingIfNecessary(SyntaxNode root, SemanticModel semanticModel, string typeName, int currentSpan)
-	{
-		if (root is CompilationUnitSyntax compilationUnit)
-		{
-			// Check if the symbol "StringName"/"NodePath" is accessible
-			ISymbol? stringTypeSymbol = semanticModel.GetSpeculativeSymbolInfo(
-				currentSpan,
-				SyntaxFactory.IdentifierName(typeName),
-				SpeculativeBindingOption.BindAsTypeOrNamespace
-			).Symbol;
-			if (stringTypeSymbol == null)
-			{
-				// Add "using Godot;" directive
-				root = compilationUnit.AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName("Godot")));
-			}
-		}
-		return root;
 	}
 
 	static async Task<Document?> FixAllAsync(FixAllContext context, Document document, ImmutableArray<Diagnostic> diagnostics)
@@ -138,7 +118,7 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 				context.CancellationToken)
 		);
 
-		newRoot = AddUsingIfNecessary(newRoot,
+		newRoot = Common.AddUsingIfNecessary(newRoot,
 			semanticModel,
 			// Since StringName and NodePath are in the same namespace, it doesn't matter which one is chosen
 			diagnostics[0].Properties["typeName"]!,
@@ -147,4 +127,3 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 		return document.WithSyntaxRoot(newRoot);
 	}
 }
-

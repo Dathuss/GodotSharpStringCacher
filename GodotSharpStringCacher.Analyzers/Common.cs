@@ -1,4 +1,6 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace GodotSharpStringCacher.Analyzers;
 
@@ -33,4 +35,23 @@ public static class Common
 		isEnabledByDefault: true,
 		description: "This foreach syntax is implicitly allocating a StringName or NodePath for each iteration. Consider making the allocation explicit or converting the enumerable beforehand."
 	);
+
+	internal static SyntaxNode AddUsingIfNecessary(SyntaxNode root, SemanticModel semanticModel, string typeName, int currentSpan, string @using = "Godot")
+	{
+		if (root is CompilationUnitSyntax compilationUnit)
+		{
+			// Check if the control symbol is accessible
+			ISymbol? stringTypeSymbol = semanticModel.GetSpeculativeSymbolInfo(
+				currentSpan,
+				SyntaxFactory.IdentifierName(typeName),
+				SpeculativeBindingOption.BindAsTypeOrNamespace
+			).Symbol;
+			if (stringTypeSymbol == null)
+			{
+				// Add "using ...;" directive
+				root = compilationUnit.AddUsings(SyntaxFactory.UsingDirective(SyntaxFactory.IdentifierName(@using)));
+			}
+		}
+		return root;
+	}
 }
