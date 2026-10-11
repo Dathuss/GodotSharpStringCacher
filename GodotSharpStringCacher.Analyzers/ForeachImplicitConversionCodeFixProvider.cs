@@ -34,8 +34,8 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 
 		if (root.FindNode(diagnosticSpan, getInnermostNodeForTie: false) is not TypeSyntax typeSyntax)
 			return;
-		
-		if (GetOuterForeachStatement(typeSyntax) is not {} forEachStatement)
+
+		if (GetOuterForeachStatement(typeSyntax) is not { } forEachStatement)
 			return;
 
 		context.RegisterCodeFix(
@@ -100,7 +100,7 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 	/// </summary>
 	/// <param name="typeSyntaxes">If using a "complex" foreach, is the list of all type expressions inside the tuple expression to replace</param>
 	/// <returns></returns>
-	static CommonForEachStatementSyntax MoveCastsInLoop(CommonForEachStatementSyntax syntax, TypeSyntax[]? typeSyntaxes = null)
+	static CommonForEachStatementSyntax MoveCastsInLoop(CommonForEachStatementSyntax syntax, IReadOnlyList<TypeSyntax>? typeSyntaxes = null)
 	{
 		static BlockSyntax PrependStatementsToLoop(IEnumerable<StatementSyntax> statements, StatementSyntax loop)
 		{
@@ -149,7 +149,7 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 			);
 		}
 
-		PredefinedTypeSyntax nativeString = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
+		PredefinedTypeSyntax nativeStringType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
 
 		if (syntax is ForEachStatementSyntax forEachStatement)
 		{
@@ -158,17 +158,17 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 			StatementSyntax declaration = MakeDeclaration(forEachStatement.Type, originalName, replacementName);
 
 			return forEachStatement
-				.WithType(nativeString)
+				.WithType(nativeStringType)
 				.WithIdentifier(replacementName)
 				.WithStatement(PrependStatementsToLoop([declaration], forEachStatement.Statement));
 		}
-		else if (syntax is ForEachVariableStatementSyntax forEachVariable)
+		else if (syntax is ForEachVariableStatementSyntax forEachVariableStatement)
 		{
 			if (typeSyntaxes == null)
 				throw new ArgumentNullException(nameof(typeSyntaxes));
 
-			List<StatementSyntax> statementsToPrepend = new(typeSyntaxes.Length);
-			Dictionary<DeclarationExpressionSyntax, DeclarationExpressionSyntax> declarationsToReplace = new(typeSyntaxes.Length);
+			List<StatementSyntax> statementsToPrepend = new(typeSyntaxes.Count);
+			Dictionary<DeclarationExpressionSyntax, DeclarationExpressionSyntax> declarationsToReplace = new(typeSyntaxes.Count);
 
 			foreach (TypeSyntax typeSyntax in typeSyntaxes)
 			{
@@ -181,17 +181,17 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 				StatementSyntax newDeclaration = MakeDeclaration(typeSyntax, originalName, replacementName);
 
 				DeclarationExpressionSyntax replacementDeclaration = SyntaxFactory.DeclarationExpression(
-					nativeString,
+					nativeStringType,
 					SyntaxFactory.SingleVariableDesignation(replacementName)
 				);
 
 				statementsToPrepend.Add(newDeclaration);
-				declarationsToReplace.Add(declarationSyntax, replacementDeclaration);
+				declarationsToReplace[declarationSyntax] = replacementDeclaration;
 			}
 
-			return forEachVariable
-				.WithStatement(PrependStatementsToLoop(statementsToPrepend, forEachVariable.Statement))
-				.WithVariable(forEachVariable.Variable.ReplaceNodes(
+			return forEachVariableStatement
+				.WithStatement(PrependStatementsToLoop(statementsToPrepend, forEachVariableStatement.Statement))
+				.WithVariable(forEachVariableStatement.Variable.ReplaceNodes(
 					declarationsToReplace.Keys,
 					(original, current) => declarationsToReplace[original]
 				));
@@ -213,10 +213,10 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 
 		Dictionary<CommonForEachStatementSyntax, List<TypeSyntax>> expressionsToReplace = new(diagnostics.Length);
 
-		foreach (var diagnostic in diagnostics)
+		foreach (Diagnostic diagnostic in diagnostics)
 		{
 			if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: false) is TypeSyntax typeSyntax
-				&& GetOuterForeachStatement(typeSyntax) is {} forEachStatement)
+				&& GetOuterForeachStatement(typeSyntax) is { } forEachStatement)
 			{
 				if (!expressionsToReplace.ContainsKey(forEachStatement))
 				{
@@ -231,7 +231,7 @@ public sealed class ForeachImplicitConversionCodeFixProvider : CodeFixProvider
 
 		SyntaxNode newRoot = root.ReplaceNodes(
 			expressionsToReplace.Keys,
-			(original, current) => MoveCastsInLoop(current, expressionsToReplace[original].ToArray())
+			(original, current) => MoveCastsInLoop(current, expressionsToReplace[original])
 		);
 
 		return document.WithSyntaxRoot(newRoot);
