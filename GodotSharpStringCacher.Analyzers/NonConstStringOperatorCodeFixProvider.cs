@@ -70,12 +70,10 @@ public sealed class NonConstStringOperatorCodeFixProvider : CodeFixProvider
 	{
 		// Remove explicit cast to StringName/NodePath if present
 		ExpressionSyntax expressionInsideConstructor = expressionToReplace;
-		if (expressionToReplace is CastExpressionSyntax castExpression)
+		if (expressionToReplace is CastExpressionSyntax castExpression
+			&& semanticModel.GetSymbolInfo(castExpression.Type, ct).Symbol?.Name == typeName)
 		{
-			if (semanticModel.GetSymbolInfo(castExpression.Type, ct).Symbol?.Name == typeName)
-			{
-				expressionInsideConstructor = castExpression.Expression;
-			}
+			expressionInsideConstructor = castExpression.Expression;
 		}
 
 		// For any expression "expr", replace it with "new StringName(expr)"/"new NodePath(expr)"

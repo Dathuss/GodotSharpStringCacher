@@ -100,19 +100,16 @@ class ForeachImplicitConversionAnalyzer : DiagnosticAnalyzer
 									ContainingAssembly.Name: "GodotSharp",
 									Name: string ctorTypeName and ("StringName" or "NodePath")
 								},
-								Parameters: { Length: 1 } args
+								Parameters: [IParameterSymbol parameter]
 							},
-						} && containingTypeName == ctorTypeName && args[0].Type.SpecialType == SpecialType.System_String)
+						} && containingTypeName == ctorTypeName && parameter.Type.SpecialType == SpecialType.System_String
+						  && correspondingDeclaration is DeclarationExpressionSyntax declaration) //< Should always happen ?
 					{
-						if (correspondingDeclaration is DeclarationExpressionSyntax declaration)
-						{
-							// Should always happen ?
-							context.ReportDiagnostic(Diagnostic.Create(
-								Common.ImplicitStringTypeConversionInForeachRule,
-								declaration.Type.GetLocation(),
-								ImmutableDictionary.CreateRange<string, string?>([new("typeName", ctorTypeName)]),
-								ctorTypeName));
-						}
+						context.ReportDiagnostic(Diagnostic.Create(
+							Common.ImplicitStringTypeConversionInForeachRule,
+							declaration.Type.GetLocation(),
+							ImmutableDictionary.CreateRange<string, string?>([new("typeName", ctorTypeName)]),
+							ctorTypeName));
 					}
 				}
 			}

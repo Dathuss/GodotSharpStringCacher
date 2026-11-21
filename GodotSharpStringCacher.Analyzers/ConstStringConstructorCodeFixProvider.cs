@@ -78,7 +78,8 @@ public sealed class ConstStringConstructorCodeFixProvider : CodeFixProvider
 
 		TypeInfo typeInfo = semanticModel.GetTypeInfo(expressionToReplace, ct);
 
-		if (typeInfo.Type != null && typeInfo.ConvertedType != null && !SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType)) {
+		if (typeInfo.Type != null && typeInfo.ConvertedType != null && !SymbolEqualityComparer.Default.Equals(typeInfo.Type, typeInfo.ConvertedType))
+		{
 			needsUsing = true;
 			replacement = SyntaxFactory.CastExpression(
 				type: SyntaxFactory.IdentifierName(typeName),

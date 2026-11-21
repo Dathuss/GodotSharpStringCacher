@@ -33,8 +33,8 @@ public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 					ContainingAssembly.Name: "GodotSharp",
 					Name: string ctorTypeName and ("StringName" or "NodePath")
 				},
-				Arguments: ImmutableArray<IArgumentOperation> args
-			} && args.Length == 1 && NonConstStringOperatorAnalyzer.AnalyzeNestedOperations(args[0].Value, Location.None, null, op.Type))
+				Arguments: [IArgumentOperation stringArg]
+			} && NonConstStringOperatorAnalyzer.AnalyzeNestedOperations(stringArg.Value, Location.None, null, op.Type))
 		{
 			context.ReportDiagnostic(Diagnostic.Create(
 				Common.StringTypeConstructorWithConstantStringRule,
