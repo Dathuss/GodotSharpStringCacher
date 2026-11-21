@@ -48,28 +48,16 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 
 	static bool AnalyzeNestedOperations(IOperation operation, Location diagnosticLocation, List<Location> outOperations, ISymbol baselineType)
 	{
+		static IOperation GetInnerOperation(IOperation op)
+		{
+			return op is IConversionOperation conversion ? conversion.Operand : op;
+		}
+
 		// Check branches of a ternary operator
 		if (operation is IConditionalOperation { WhenFalse: not null } conditionalOperation)
 		{
-			if (conditionalOperation.WhenTrue.ConstantValue.HasValue && conditionalOperation.WhenFalse.ConstantValue.HasValue)
-			{
-				return false;
-			}
-			else if (conditionalOperation.WhenTrue.ConstantValue.HasValue)
-			{
-				diagnosticLocation = conditionalOperation.WhenFalse.Syntax.GetLocation();
-			}
-			else if (conditionalOperation.WhenFalse.ConstantValue.HasValue)
-			{
-				diagnosticLocation = conditionalOperation.WhenTrue.Syntax.GetLocation();
-			}
-			// When both paths are not constant, warn for the whole ternary
-
-			// TODO: implement chained ternaries
-			// They are a pain because even the compiler doesn't handle them well, it
-			// will insert useless implicit conversions, which have the effect of
-			// generating unoptimized CIL as well as being hard to handle programmatically.
-			outOperations.Add(diagnosticLocation);
+			return AnalyzeNestedOperations(GetInnerOperation(conditionalOperation.WhenTrue), conditionalOperation.WhenTrue.Syntax.GetLocation(), outOperations, baselineType)
+				& AnalyzeNestedOperations(GetInnerOperation(conditionalOperation.WhenFalse), conditionalOperation.WhenFalse.Syntax.GetLocation(), outOperations, baselineType);
 		}
 		else if (operation is ISwitchExpressionOperation switchExpression)
 		{
@@ -78,7 +66,7 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 			{
                 // It's possible that a conversion operation wraps another switch operation or even a throw operation.
                 // We'll unwrap it to continue finding all the outcomes
-                IOperation innerOp = arm.Value is IConversionOperation conversion ? conversion.Operand : arm.Value;
+                IOperation innerOp = GetInnerOperation(arm.Value);
 				if (innerOp is not IThrowOperation)
 				{
 					isConstant &= !AnalyzeNestedOperations(innerOp, arm.Value.Syntax.GetLocation(), outOperations, baselineType);
