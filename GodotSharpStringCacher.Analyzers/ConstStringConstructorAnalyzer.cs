@@ -24,7 +24,9 @@ public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 		SemanticModel semanticModel = context.SemanticModel;
 		SyntaxNode node = context.Node;
 
-		if (semanticModel.GetOperation(node, context.CancellationToken) is IObjectCreationOperation
+		IOperation? op = semanticModel.GetOperation(node, context.CancellationToken);
+
+		if (op is IObjectCreationOperation
 			{
 				Type:
 				{
@@ -32,7 +34,7 @@ public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 					Name: string ctorTypeName and ("StringName" or "NodePath")
 				},
 				Arguments: ImmutableArray<IArgumentOperation> args
-			} && args.Length == 1 && CheckArgumentIsConstant(args[0].Value))
+			} && args.Length == 1 && NonConstStringOperatorAnalyzer.AnalyzeNestedOperations(args[0].Value, Location.None, null, op.Type))
 		{
 			context.ReportDiagnostic(Diagnostic.Create(
 				Common.StringTypeConstructorWithConstantStringRule,
@@ -40,18 +42,5 @@ public sealed class ConstStringConstructorAnalyzer : DiagnosticAnalyzer
 				ImmutableDictionary.CreateRange<string, string?>([new("typeName", ctorTypeName)]),
 				ctorTypeName));
 		}
-	}
-
-	static bool CheckArgumentIsConstant(IOperation operation)
-	{
-		if (operation.ConstantValue.Value is string)
-			return true;
-		// Check if both paths of a ternary operator are constant
-		if (operation is IConditionalOperation { WhenFalse: not null } conditionalOperation)
-		{
-			return conditionalOperation.WhenTrue.ConstantValue.Value is string
-				&& conditionalOperation.WhenFalse.ConstantValue.Value is string;
-		}
-		return false;
 	}
 }

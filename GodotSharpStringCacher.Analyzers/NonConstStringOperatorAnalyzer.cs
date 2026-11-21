@@ -46,7 +46,15 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 		}
 	}
 
-	static bool AnalyzeNestedOperations(IOperation operation, Location diagnosticLocation, List<Location> outOperations, ISymbol baselineType)
+	/// <summary>
+	/// Returns true if the operation yields a constant string value.
+	/// Takes into account switch expressions and ternaries.
+	/// </summary>
+	/// <param name="diagnosticLocation">Location of the operation, including the conversion operation that may contain it.</param>
+	/// <param name="outOperations">If non-null, gets filled with the locations of the non-constant operations inside the operation.</param>
+	/// <param name="baselineType">The type to compare against (StringName/NodePath) when testing if value is non-constant.</param>
+	/// <returns></returns>
+	public static bool AnalyzeNestedOperations(IOperation operation, Location diagnosticLocation, IList<Location>? outOperations, ISymbol baselineType)
 	{
 		static IOperation GetInnerOperation(IOperation op)
 		{
@@ -76,7 +84,7 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 		}
 		else if (operation.ConstantValue.Value is not string && !SymbolEqualityComparer.Default.Equals(operation.Type, baselineType))
 		{
-			outOperations.Add(diagnosticLocation);
+			outOperations?.Add(diagnosticLocation);
 			return false;
 		}
 		return true;
