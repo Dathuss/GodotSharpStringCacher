@@ -1,4 +1,5 @@
-﻿using System.Collections.Immutable;
+﻿using System.Collections.Generic;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
@@ -31,22 +32,24 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 			} conversionOperation)
 		{
 			Location diagnosticLocation = context.Operation.Syntax.GetLocation();
-			if (!TryAnalyzeNestedOperation(conversionOperation.Operand, ref diagnosticLocation))
-				return;
+			List<Location> outLocations = [];
+			AnalyzeNestedOperations(conversionOperation.Operand, diagnosticLocation, outLocations, conversionOperation.Type!);
 
-			context.ReportDiagnostic(Diagnostic.Create(
-				Common.StringTypeImplicitOperatorWithNonConstantStringRule,
-				diagnosticLocation,
-				ImmutableDictionary.CreateRange<string, string?>([new("typeName", conversionTypeName)]),
-				conversionTypeName));
+			foreach (Location location in outLocations)
+			{
+				context.ReportDiagnostic(Diagnostic.Create(
+					Common.StringTypeImplicitOperatorWithNonConstantStringRule,
+					location,
+					ImmutableDictionary.CreateRange<string, string?>([new("typeName", conversionTypeName)]),
+					conversionTypeName));
+			}
 		}
-
 	}
 
-	static bool TryAnalyzeNestedOperation(IOperation nestedOperation, ref Location diagnosticLocation)
+	static bool AnalyzeNestedOperations(IOperation operation, Location diagnosticLocation, List<Location> outOperations, ISymbol baselineType)
 	{
 		// Check branches of a ternary operator
-		if (nestedOperation is IConditionalOperation { WhenFalse: not null } conditionalOperation)
+		if (operation is IConditionalOperation { WhenFalse: not null } conditionalOperation)
 		{
 			if (conditionalOperation.WhenTrue.ConstantValue.HasValue && conditionalOperation.WhenFalse.ConstantValue.HasValue)
 			{
@@ -66,6 +69,27 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 			// They are a pain because even the compiler doesn't handle them well, it
 			// will insert useless implicit conversions, which have the effect of
 			// generating unoptimized CIL as well as being hard to handle programmatically.
+			outOperations.Add(diagnosticLocation);
+		}
+		else if (operation is ISwitchExpressionOperation switchExpression)
+		{
+			bool isConstant = true;
+			foreach (ISwitchExpressionArmOperation arm in switchExpression.Arms)
+			{
+                // It's possible that a conversion operation wraps another switch operation or even a throw operation.
+                // We'll unwrap it to continue finding all the outcomes
+                IOperation innerOp = arm.Value is IConversionOperation conversion ? conversion.Operand : arm.Value;
+				if (innerOp is not IThrowOperation)
+				{
+					isConstant &= !AnalyzeNestedOperations(innerOp, arm.Value.Syntax.GetLocation(), outOperations, baselineType);
+				}
+			}
+			return isConstant;
+		}
+		else if (operation.ConstantValue.Value is not string && !SymbolEqualityComparer.Default.Equals(operation.Type, baselineType))
+		{
+			outOperations.Add(diagnosticLocation);
+			return false;
 		}
 		return true;
 	}
