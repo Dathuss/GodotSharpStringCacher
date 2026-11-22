@@ -47,8 +47,10 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 	}
 
 	/// <summary>
-	/// Returns true if the operation yields a constant string value.
-	/// Takes into account switch expressions and ternaries.
+	/// Returns true if the operation yields a patchable value (normally a constant string).
+	/// <br/><br/>
+	/// If the expression is a ternary expression or a switch expression, only the branches are considered, even if the condition is non-constant.
+	/// This is to allow patching of ternary expressions and switch expressions where the branches are constant but typed as string.
 	/// </summary>
 	/// <param name="diagnosticLocation">Location of the operation, including the conversion operation that may contain it.</param>
 	/// <param name="outOperations">If non-null, gets filled with the locations of the non-constant operations inside the operation.</param>
@@ -61,32 +63,60 @@ public sealed class NonConstStringOperatorAnalyzer : DiagnosticAnalyzer
 			return op is IConversionOperation conversion ? conversion.Operand : op;
 		}
 
-		// Check branches of a ternary operator
-		if (operation is IConditionalOperation { WhenFalse: not null } conditionalOperation)
+		// Constant string expression or StringName/NodePath expression
+		if ((operation.ConstantValue.HasValue && operation.ConstantValue.Value is string)
+			|| SymbolEqualityComparer.Default.Equals(operation.Type, baselineType))
 		{
-			return AnalyzeNestedOperations(GetInnerOperation(conditionalOperation.WhenTrue), conditionalOperation.WhenTrue.Syntax.GetLocation(), outOperations, baselineType)
-				& AnalyzeNestedOperations(GetInnerOperation(conditionalOperation.WhenFalse), conditionalOperation.WhenFalse.Syntax.GetLocation(), outOperations, baselineType);
+			return true;
 		}
+		// Ternary expression
+		else if (operation is IConditionalOperation conditionalOperation)
+		{
+			bool isTrueBranchConstant = AnalyzeNestedOperations(
+				GetInnerOperation(conditionalOperation.WhenTrue),
+				conditionalOperation.WhenTrue.Syntax.GetLocation(),
+				outOperations,
+				baselineType);
+
+			bool isFalseBranchConstant = true;
+			if (conditionalOperation.WhenFalse is not null)
+			{
+				isFalseBranchConstant = AnalyzeNestedOperations(
+					GetInnerOperation(conditionalOperation.WhenFalse),
+					conditionalOperation.WhenFalse.Syntax.GetLocation(),
+					outOperations,
+					baselineType);
+			}
+
+			return isTrueBranchConstant && isFalseBranchConstant;
+		}
+		// Switch expression
 		else if (operation is ISwitchExpressionOperation switchExpression)
 		{
-			bool isConstant = true;
+			bool areAllSwitchArmsConstant = true;
 			foreach (ISwitchExpressionArmOperation arm in switchExpression.Arms)
 			{
-                // It's possible that a conversion operation wraps another switch operation or even a throw operation.
-                // We'll unwrap it to continue finding all the outcomes
-                IOperation innerOp = GetInnerOperation(arm.Value);
-				if (innerOp is not IThrowOperation)
-				{
-					isConstant &= !AnalyzeNestedOperations(innerOp, arm.Value.Syntax.GetLocation(), outOperations, baselineType);
-				}
+				IOperation armInner = GetInnerOperation(arm.Value);
+
+				if (armInner is IThrowOperation)
+					continue;
+
+				bool isSwitchArmConstant = AnalyzeNestedOperations(
+					armInner,
+					arm.Value.Syntax.GetLocation(),
+					outOperations,
+					baselineType);
+
+				if (!isSwitchArmConstant)
+					areAllSwitchArmsConstant = false;
 			}
-			return isConstant;
+			return areAllSwitchArmsConstant;
 		}
-		else if (operation.ConstantValue.Value is not string && !SymbolEqualityComparer.Default.Equals(operation.Type, baselineType))
+		// Non-constant expression
+		else
 		{
 			outOperations?.Add(diagnosticLocation);
 			return false;
 		}
-		return true;
 	}
 }
